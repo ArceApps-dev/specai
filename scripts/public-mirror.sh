@@ -349,15 +349,24 @@ build_public_snapshot() {
       done < "$tree_entries_file"
     fi
 
-    local tree parent='' message public_commit current_main='' current_tree='' snapshot_noop='0'
+    local tree parent='' message public_commit current_main='' current_tree='' current_source_trailer='' snapshot_noop='0'
     local root_marker='' source_trailer=''
     tree=$(git -C "$destination" write-tree) || exit 1
     if [[ "$force_root" != '1' ]] && current_main=$(git -C "$destination" rev-parse --verify refs/heads/main^{commit} 2>/dev/null); then
       current_tree=$(git -C "$destination" rev-parse "${current_main}^{tree}") || exit 1
       if [[ "$current_tree" == "$tree" ]]; then
+        if [[ "$guard_main" != '1' ]]; then
+          snapshot_noop='1'
+          public_commit="$current_main"
+        else
+          current_source_trailer=$(git -C "$destination" show -s --format='%(trailers:key=SpecAI-Mirror-Source-SHA,valueonly)' "$current_main" 2>/dev/null || true)
+        fi
+      fi
+      if [[ "$current_tree" == "$tree" && "$current_source_trailer" == "$source_sha" ]]; then
         snapshot_noop='1'
         public_commit="$current_main"
-      else
+      fi
+      if [[ "$snapshot_noop" != '1' ]]; then
         root_marker=$(git -C "$destination" show -s --format='%(trailers:key=SpecAI-Mirror-Root,valueonly)' "$current_main" 2>/dev/null || true)
         source_trailer=$(git -C "$destination" show -s --format='%(trailers:key=SpecAI-Mirror-Source-SHA,valueonly)' "$current_main" 2>/dev/null || true)
       fi
