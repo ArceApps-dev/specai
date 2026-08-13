@@ -1,0 +1,67 @@
+{
+  "specai-plan": {
+    "description": "Execute the canonical SpecAI flow: grounding → grill-me → write-prd → approval → six documents → choose implement/backlog → branch only if implement → per-task cycle → spec-compliance-reviewer → verifier → Gate UA → finishing.",
+    "template": "Execute the canonical SpecAI flow exactly:\n\ngrounding → grill-me → write-prd → approval → six documents → choose implement/backlog → branch only if implement → per-task cycle → spec-compliance-reviewer → verifier → Gate UA → finishing\n\nGround the codebase before asking one question at a time with grill-me. Write and approve the PRD, then create the six documents without a branch. Choose implement or backlog: backlog keeps the feature folder and creates no branch; create the feature branch only if implementation is chosen. Before implementing each task, dispatch a fresh implementer session with fork_context: false and only its bounded task context; then record TASK_STARTED with timestamp, branch, git_hash, task_id, and context. For every implementation task, run implement → build/test → code review with quality and Compliance verdict: PASS → commit → document. Between sessions, recover from *-tasks.md and the Execution Log of *-plan.md: restore every in_progress task, or the first eligible pending task when none is active; block on inconsistencies. If a wait returns timed_out, retain the handle and poll again; do not relaunch. TodoWrite is only the session mirror. Human approval and review checkpoints remain decision gates, never session persistence. After all tasks, run the full suite, spec-compliance-reviewer for cross-task/global invariants, then verifier against _verify.md. Stop at Gate UA for explicit user acceptance before finishing. The controller owns the todo; specai-documentation owns living-document states, checks, and logs; internal steps are never marked.",
+    "subtask": false
+  },
+  "specai-mini": {
+    "description": "Execute Mini mode (grill-me grounding → plan → implement → verify) for small features and bug fixes.",
+    "template": "Execute Mini mode for a small feature or bug fix:\n\n1. Load specai-grill-me. Inspect relevant code and configuration before asking exactly one design question at a time, and ask only when the codebase cannot answer.\n2. Create the six compact execution documents without a branch.\n3. Choose implement or backlog.\n4. If implementation is chosen, create a feature branch only after PRD approval and the user's implementation choice; backlog creates no branch.\n5. Before implementation, record TASK_STARTED with timestamp, branch, git_hash, task_id, and context.\n6. Implement with surgical changes.\n7. Verify the fix works against the global goal contract and stop at Gate UA for manual testing and explicit user acceptance before finishing.\n\nMini creates the same six documents in compact form. The six documents are *-prd.md, *-spec.md, *-designs.md, *-plan.md, *-tasks.md, and *-verify.md. Compactness reduces explanation density and ceremony only; it does not remove exact task instructions, global Given/When/Then criteria, criterion metadata (Criterion type/Invariant/Verification seam), evidence, corrective loop, branch gate, or Gate UA. Mini keeps the shorter flow and may omit the Full-mode per-task code-review and checkpoints. Recover between sessions from *-tasks.md and the Execution Log of *-plan.md; TodoWrite is only the session mirror. Any human approval or review checkpoint is a decision gate only, never persistent session state.\n\nBegin by loading specai-grill-me and grounding the request in the codebase.",
+    "subtask": false
+  },
+  "specai-explore": {
+    "description": "Explore codebase interactively — thinking partner, no artifacts. Reads code and weighs options before anything is written.",
+    "template": "Explore the codebase interactively. You are a thinking partner:\n\n- Read code and weigh options\n- Answer questions about the codebase\n- Suggest approaches without implementing\n- No artifacts, no commitment, no files written\n\nAsk the user what they want to explore.",
+    "subtask": false
+  },
+  "specai-verify": {
+    "description": "Verify implementation against acceptance criteria.",
+    "template": "Verify the current implementation against the acceptance criteria in the spec and plan documents.\n\n1. Find the relevant _plan.md / _verify.md / spec files.\n2. Check each acceptance criterion against the implementation.\n3. Report pass/fail for each criterion.\n4. If failures, suggest corrective tasks.\n\nReport results clearly.",
+    "subtask": false
+  },
+  "specai-review": {
+    "description": "Review current diff for over-engineering (delete/stdlib/native/yagni/shrink tags).",
+    "template": "Load skill specai-anti-bloat and run the review sub-skill on the current git diff. Report findings with tags: delete/stdlib/native/yagni/shrink. End with net: -N lines possible.",
+    "subtask": false
+  },
+  "specai-iterate": {
+    "description": "User feedback loop — document issues, add corrective tasks, re-enter execution.",
+    "template": "Enter user feedback iteration loop:\n\n1. Ask what isn't working or needs to change.\n2. Update living documents (_plan.md, _tasks.md).\n3. Add corrective tasks under ## Iteration Tasks.\n4. Execute corrective tasks.\n5. Re-verify after fixes.\n\nBegin by asking what issues were found.",
+    "subtask": false
+  },
+  "specai-mode": {
+    "description": "Set senior philosophy intensity: off, lite, medium, or ultra.",
+    "template": "Change the senior philosophy intensity level. Read ~/.config/specai/config.json, update seniorMode to the requested level (lite|medium|ultra|off). If no level specified, report current level.\n\nLevels:\n- off: No changes\n- lite: Build what's asked, suggest lazier alternative\n- medium: Full ladder enforced, minimalism active (default)\n- ultra: YAGNI extremist, question the task itself",
+    "subtask": false
+  },
+  "specai-audit": {
+    "description": "Audit entire repo for bloat, ranked by impact.",
+    "template": "Load skill specai-anti-bloat and run the audit sub-skill on the entire repository. Rank findings by impact (biggest cut first). End with net: -N lines, -M deps possible.",
+    "subtask": false
+  },
+  "specai-audit-plan": {
+    "description": "Full-project audit (bloat + architecture) → interactive triage → specai-plan.",
+    "template": "Load skill specai-audit-plan and run it. It walks the user through a ranked audit, picks the highest-impact item, and offers to launch /specai-plan on the chosen target.",
+    "subtask": false
+  },
+  "specai-backlog": {
+    "description": "Show pending plans from .specai/backlog.json. Select by number to execute.",
+    "template": "Read .specai/backlog.json. If --done flag: show all plans. Otherwise: filter plans where status != done. Display numbered list. If user selects a number, load and execute that plan.",
+    "subtask": false
+  },
+  "specai-init": {
+    "description": "Initialize docs/specai/project/ incrementally, verify config, and optionally run a scoped preflight for one unidad funcional acotada.",
+    "template": "Initialize specai configuration without inventorying the whole repository. Ensure ~/.config/specai/config.json exists with default models and language:auto, ensure docs/specai/project/ exists idempotently, and run the scoped preflight for the affected functional unit when one is known: bash scripts/specai-init.sh --scope <path>. Review only that unit's code and offer to create its missing project spec through the documenter. Run bash scripts/setup-agents.sh to verify OpenCode agents. Report current state.",
+    "subtask": false
+  },
+  "specai-finish": {
+    "description": "Prepare and archive a completed feature only after documentation, SPEC_DRIFT, verifier, Gate UA, and explicit user consent pass.",
+    "template": "Finish the current feature through the consented documentary flow. First run `bash scripts/specai-finish.sh preflight <Feature-ID>` and stop on any SPEC_DRIFT or readiness failure. Then run `bash scripts/specai-finish.sh preview <Feature-ID>` and show the planned documentation/backlog/archive operations, including GIT_PENDING. Before mutation, confirm that the documenter has updated the project-spec delta and the six dated feature artifacts. Ask for explicit user permission to archive, then run `bash scripts/specai-finish.sh archive <Feature-ID> --confirm-archive`. The script performs no commit, push, merge, checkout, reset, or branch operation. Present any GIT_PENDING actions separately and request explicit user permission before Git integration.",
+    "subtask": false
+  },
+  "specai-config": {
+    "description": "Open interactive TUI for configuring specai agents and settings.",
+    "template": "Launch the specai TUI configuration tool by running: bash scripts/specai-tui.sh\n\nThis opens an interactive menu where the user can:\n- View current configuration\n- Change agent models\n- Apply profiles (Economic, Balanced, Premium)\n- Set language, commit mode, senior mode\n- Reset to defaults",
+    "subtask": false
+  }
+}

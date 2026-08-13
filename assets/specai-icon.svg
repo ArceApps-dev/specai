@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#018786"/>
+      <stop offset="100%" style="stop-color:#FF9800"/>
+    </linearGradient>
+  </defs>
+  <!-- Hexagon background -->
+  <polygon points="256,32 448,128 448,384 256,480 64,384 64,128" fill="url(#grad)" opacity="0.12"/>
+  <!-- Hexagon border -->
+  <polygon points="256,32 448,128 448,384 256,480 64,384 64,128" fill="none" stroke="url(#grad)" stroke-width="16" stroke-linejoin="round"/>
+  <!-- Checkmark - geometric triangular form -->
+  <polyline points="144,264 224,344 368,184" fill="none" stroke="url(#grad)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Small geometric accent triangles -->
+  <polygon points="256,32 288,48 224,48" fill="#018786" opacity="0.3"/>
+  <polygon points="448,128 448,160 416,144" fill="#FF9800" opacity="0.3"/>
+</svg>

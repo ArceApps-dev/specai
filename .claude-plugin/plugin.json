@@ -1,0 +1,19 @@
+{
+  "name": "specai",
+  "description": "SpecAI workflow: planning, TDD, debugging, collaboration patterns, and delivery workflows",
+  "version": "1.0.3",
+  "author": {
+    "name": "ArceApps",
+    "url": "https://github.com/ArceApps"
+  },
+  "homepage": "https://github.com/ArceApps/specai",
+  "repository": "https://github.com/ArceApps/specai",
+  "license": "MIT",
+  "keywords": [
+    "specai",
+    "tdd",
+    "debugging",
+    "collaboration",
+    "workflows"
+  ]
+}

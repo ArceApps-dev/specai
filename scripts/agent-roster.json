@@ -1,0 +1,11 @@
+{
+  "agents": [
+    {"name": "implementer", "defaultModel": "minimax/MiniMax-M3"},
+    {"name": "build-fixer", "defaultModel": "minimax/MiniMax-M3"},
+    {"name": "code-reviewer", "defaultModel": "minimax/MiniMax-M3"},
+    {"name": "verifier", "defaultModel": "minimax/MiniMax-M3"},
+    {"name": "spec-compliance-reviewer", "defaultModel": "minimax/MiniMax-M3"},
+    {"name": "specai-command", "defaultModel": "minimax/MiniMax-M3"},
+    {"name": "specai-documentation", "defaultModel": "minimax/MiniMax-M3"}
+  ]
+}

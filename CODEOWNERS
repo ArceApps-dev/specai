@@ -1,0 +1,39 @@
+# CODEOWNERS — specai
+#
+# One entry per line: pattern @owner [@owner ...]
+# The last match wins. Owners are pinged on every PR that touches a matching
+# path. Adding yourself here is gated by CONTRIBUTING.md §2.2.
+
+# Default: owner-only paths require @ArceApps review.
+/                         @ArceApps
+/.github/                 @ArceApps
+/AGENTS.md                @ArceApps
+/CLAUDE.md                @ArceApps
+/GEMINI.md                @ArceApps
+/README.md                @ArceApps
+/README.es.md             @ArceApps
+/LICENSE                  @ArceApps
+/CODE_OF_CONDUCT.md       @ArceApps
+/CONTRIBUTING.md          @ArceApps
+/CODEOWNERS               @ArceApps
+/RELEASE.md               @ArceApps
+/RELEASE-NOTES.md         @ArceApps
+/.version-bump.json       @ArceApps
+
+# Scripts and plugin wiring — first maintainer onboarded will share ownership.
+/scripts/                 @ArceApps
+/.opencode/               @ArceApps
+/.antigravity-plugin/     @ArceApps
+/.claude-plugin/          @ArceApps
+/.codex-plugin/           @ArceApps
+/.cursor-plugin/          @ArceApps
+
+# Skills — large surface; co-ownership is expected as maintainers are added.
+/skills/                  @ArceApps
+
+# Tests + hooks are private-only; mirror ignores them.
+/tests/                   @ArceApps
+/hooks/                   @ArceApps
+
+# docs/ — includes the user's private plans; mirror excludes certain paths.
+/docs/                    @ArceApps

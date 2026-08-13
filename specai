@@ -1,0 +1,420 @@
+#!/usr/bin/env bash
+
+# Exit on error
+set -eo pipefail
+
+# Determine repository root directory
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_SKILLS_DIR="${REPO_ROOT}/.antigravity-plugin/skills"
+PLUGIN_DIR="${REPO_ROOT}/.antigravity-plugin"
+# Antigravity discovers its plugins under the same XDG-style config dir Gemini
+# CLI once used. The directory name is misleading — this is an Antigravity path.
+ANTIGRAVITY_PLUGINS_DIR="${HOME}/.gemini/config/plugins"
+INSTALLED_PLUGIN_DIR="${ANTIGRAVITY_PLUGINS_DIR}/specai"
+LEGACY_CLI_DIR="${HOME}/.gemini/antigravity-cli/skills"
+
+# Hermes discovers skills by reading individual SKILL.md files under
+# $HERMES_HOME/skills/. There is no plugin-manifest layer — the harness
+# inspects the directory directly, so a symlink per skill is the right
+# coupling (cheaper to install/uninstall, future-proof for
+# `hermes skills install <specific>` to find our repo).
+HERMES_SKILLS_DIR="${HERMES_HOME:-${HOME}/.hermes}/skills"
+REPO_SKILLS_DIR="${REPO_ROOT}/skills"
+
+# UI Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+# Print Header
+print_header() {
+    clear
+    echo -e "${CYAN}${BOLD}==================================================${NC}"
+    echo -e "${CYAN}${BOLD}                 specai Manager                  ${NC}"
+    echo -e "${CYAN}${BOLD}==================================================${NC}"
+    echo ""
+}
+
+# Find Desktop workspace with legacy .agents/skills
+find_desktop_workspace() {
+    local dir="$(pwd)"
+    while [[ "$dir" != "/" ]]; do
+        if [[ -d "$dir/.agents/skills" ]]; then
+            echo "$dir/.agents/skills"
+            return 0
+        fi
+        dir="$(dirname "$dir")"
+    done
+    return 1
+}
+
+# Install specai as a Gemini/Antigravity plugin
+install_plugin() {
+    echo -e "${BLUE}Instalando specai como plugin de Gemini/Antigravity...${NC}"
+
+    if [ ! -d "${PLUGIN_DIR}" ]; then
+        echo -e "${RED}Error: El directorio de plugin ${PLUGIN_DIR} no existe.${NC}"
+        exit 1
+    fi
+
+    # Check if agy CLI is available in PATH or .local/bin
+    local agy_cmd="agy"
+    if [ -f "${HOME}/.local/bin/agy" ]; then
+        agy_cmd="${HOME}/.local/bin/agy"
+    fi
+
+    if command -v "${agy_cmd}" &>/dev/null; then
+        echo -e "${CYAN}Usando la CLI oficial 'agy' para la instalación...${NC}"
+        # Uninstall first to ensure clean state
+        "${agy_cmd}" plugin uninstall specai &>/dev/null || true
+        if [ -L "${INSTALLED_PLUGIN_DIR}" ] || [ -e "${INSTALLED_PLUGIN_DIR}" ]; then
+            rm -rf "${INSTALLED_PLUGIN_DIR}"
+        fi
+        "${agy_cmd}" plugin install "${PLUGIN_DIR}"
+        echo -e "${GREEN}✓ Plugin instalado vía agy: ${INSTALLED_PLUGIN_DIR}${NC}"
+    else
+        # Fallback to manual symlink
+        echo -e "${YELLOW}Advertencia: 'agy' no está en el PATH. Usando fallback de symlink...${NC}"
+        mkdir -p "${ANTIGRAVITY_PLUGINS_DIR}"
+        if [ -L "${INSTALLED_PLUGIN_DIR}" ] || [ -e "${INSTALLED_PLUGIN_DIR}" ]; then
+            rm -rf "${INSTALLED_PLUGIN_DIR}"
+        fi
+        ln -s "${PLUGIN_DIR}" "${INSTALLED_PLUGIN_DIR}"
+        echo -e "${GREEN}✓ Plugin vinculado: ${INSTALLED_PLUGIN_DIR} -> ${PLUGIN_DIR}${NC}"
+    fi
+
+    echo -e "\n${GREEN}${BOLD}Instalación completada.${NC}"
+    echo -e "Reiniciá Antigravity para cargar el plugin.\n"
+}
+
+# Uninstall specai plugin and clean legacy symlink paths
+uninstall_plugin() {
+    echo -e "${BLUE}Desinstalando specai de Gemini/Antigravity...${NC}"
+
+    # Check if agy CLI is available in PATH or .local/bin
+    local agy_cmd="agy"
+    if [ -f "${HOME}/.local/bin/agy" ]; then
+        agy_cmd="${HOME}/.local/bin/agy"
+    fi
+
+    if command -v "${agy_cmd}" &>/dev/null; then
+        echo -e "${CYAN}Usando la CLI oficial 'agy' para la desinstalación...${NC}"
+        "${agy_cmd}" plugin uninstall specai || true
+    fi
+
+    if [ -L "${INSTALLED_PLUGIN_DIR}" ] || [ -e "${INSTALLED_PLUGIN_DIR}" ]; then
+        rm -rf "${INSTALLED_PLUGIN_DIR}"
+        echo -e "  ${RED}✗${NC} Plugin removido: ${INSTALLED_PLUGIN_DIR}"
+    else
+        echo -e "${YELLOW}  El plugin no está instalado o ya fue desinstalado.${NC}"
+    fi
+
+    # Clean legacy CLI skill symlinks
+    if [ -d "${LEGACY_CLI_DIR}" ]; then
+        for legacy_link in "${LEGACY_CLI_DIR}"/specai-*; do
+            [ -e "${legacy_link}" ] || [ -L "${legacy_link}" ] || continue
+            rm -rf "${legacy_link}"
+            echo -e "  ${RED}✗${NC} Legacy removido: $(basename "${legacy_link}")"
+        done
+    fi
+
+    # Clean legacy Desktop workspace skill symlinks
+    local desktop_workspace
+    desktop_workspace=$(find_desktop_workspace 2>/dev/null) || true
+    if [ -n "${desktop_workspace}" ]; then
+        for legacy_link in "${desktop_workspace}"/specai-*; do
+            [ -e "${legacy_link}" ] || [ -L "${legacy_link}" ] || continue
+            rm -rf "${legacy_link}"
+            echo -e "  ${RED}✗${NC} Legacy removido: $(basename "${legacy_link}")"
+        done
+    fi
+
+    echo -e "\n${GREEN}${BOLD}Desinstalación completada.${NC}\n"
+}
+
+# Setup OpenCode Subagents
+setup_opencode() {
+    echo -e "${BLUE}Iniciando configuración de subagentes para OpenCode...${NC}"
+    if [ -f "${REPO_ROOT}/scripts/setup-agents.sh" ]; then
+        bash "${REPO_ROOT}/scripts/setup-agents.sh"
+    else
+        echo -e "${RED}Error: No se encontró el script scripts/setup-agents.sh${NC}"
+    fi
+}
+
+# Configure Subagents Models
+configure_models() {
+    echo -e "${BLUE}Configurando modelos de los subagentes...${NC}"
+    if [ -f "${REPO_ROOT}/scripts/configure-agents.sh" ]; then
+        bash "${REPO_ROOT}/scripts/configure-agents.sh"
+    else
+        echo -e "${RED}Error: No se encontró el script scripts/configure-agents.sh${NC}"
+    fi
+}
+
+# Uninstall OpenCode agents
+uninstall_opencode() {
+    echo -e "${BLUE}Iniciando desinstalación de agentes de OpenCode...${NC}"
+    if [ -f "${REPO_ROOT}/scripts/uninstall-agents.sh" ]; then
+        bash "${REPO_ROOT}/scripts/uninstall-agents.sh"
+    else
+        echo -e "${RED}Error: No se encontró scripts/uninstall-agents.sh${NC}"
+    fi
+}
+
+# Uninstall OpenCode agents AND delete ~/.config/specai/
+purge_opencode() {
+    echo -e "${BLUE}Purgando specai de OpenCode (agentes + configuración)...${NC}"
+    if [ -f "${REPO_ROOT}/scripts/uninstall-agents.sh" ]; then
+        bash "${REPO_ROOT}/scripts/uninstall-agents.sh" --purge-config
+    else
+        echo -e "${RED}Error: No se encontró scripts/uninstall-agents.sh${NC}"
+    fi
+}
+
+# Update: re-link plugin + re-inject agents
+update_all() {
+    echo -e "${BLUE}Actualizando specai...${NC}"
+    echo -e "${CYAN}Paso 1: re-vinculando plugin de Gemini/Antigravity...${NC}"
+    install_plugin
+    echo -e "${CYAN}Paso 2: re-inyectando agentes en OpenCode...${NC}"
+    setup_opencode
+    echo -e "${CYAN}Paso 3: re-vinculando skills en Hermes...${NC}"
+    install_hermes
+    echo -e "\n${GREEN}${BOLD}¡Actualización completa!${NC}"
+    echo -e "Los cambios del último git pull están activos.\n"
+}
+
+# Install specai skills into Hermes's $HERMES_HOME/skills/ as per-skill symlinks.
+# One symlink per skill in skills/ — individually addressable by
+# `hermes skills list/uninstall <name>` and easy to clean up.
+#
+# CAVEAT: uninstall-hermes() below removes any ~/.hermes/skills/specai-*
+# symlink, including ones installed from the Hermes skill hub. The specai
+# conventions keep skill names in the `specai-*` namespace, so this is
+# expected behavior — if the user has specai skills from the hub, those
+# will also be removed by uninstall-hermes. Reinstall them with
+# `hermes skills install <id>` after.
+install_hermes() {
+    echo -e "${BLUE}Instalando skills de specai en Hermes...${NC}"
+
+    if [ ! -d "${REPO_SKILLS_DIR}" ]; then
+        echo -e "${RED}Error: el directorio de skills ${REPO_SKILLS_DIR} no existe.${NC}"
+        exit 1
+    fi
+
+    mkdir -p "${HERMES_SKILLS_DIR}"
+
+    local linked=0
+    local skipped=0
+    # Bash nullglob: a missing/empty glob yields no matches (so the loop
+    # body doesn't run a single time with the literal pattern).
+    shopt -s nullglob
+    for skill_dir in "${REPO_SKILLS_DIR}"/*/; do
+        local name
+        name="$(basename "${skill_dir}")"
+        # Only link skills that ship a SKILL.md (skip docs/, references/, etc.
+        # that may also live under skills/ as supporting subdirs).
+        if [ ! -f "${skill_dir}SKILL.md" ]; then
+            continue
+        fi
+        local target="${HERMES_SKILLS_DIR}/${name}"
+        # Replace existing symlink or directory so re-runs stay idempotent.
+        if [ -L "${target}" ] || [ -e "${target}" ]; then
+            rm -rf "${target}"
+        fi
+        ln -s "${skill_dir%/}" "${target}"
+        linked=$((linked + 1))
+    done
+    shopt -u nullglob
+
+    echo -e "${GREEN}✓ ${linked} skill(s) de specai vinculadas en ${HERMES_SKILLS_DIR}${NC}"
+    if [ "${skipped}" -gt 0 ]; then
+        echo -e "${YELLOW}  ${skipped} ya estaban instaladas (revisá con 'hermes skills list')${NC}"
+    fi
+    echo -e "\n${GREEN}${BOLD}Instalación en Hermes completada.${NC}"
+    echo -e "Verificá con: ${CYAN}hermes skills list | grep specai${NC}\n"
+}
+
+# Remove specai skill symlinks from Hermes's skills directory.
+uninstall_hermes() {
+    echo -e "${BLUE}Desinstalando specai de Hermes...${NC}"
+
+    if [ ! -d "${HERMES_SKILLS_DIR}" ]; then
+        echo -e "${YELLOW}  El directorio ${HERMES_SKILLS_DIR} no existe — nada que desinstalar.${NC}"
+        return 0
+    fi
+
+    local removed=0
+    # glob with -- to keep `specai-*` from expanding to filenames starting with `-`.
+    shopt -s nullglob
+    for link in "${HERMES_SKILLS_DIR}"/specai-*; do
+        if [ -L "${link}" ]; then
+            rm -f "${link}"
+            echo -e "  ${RED}✗${NC} Removido: $(basename "${link}")"
+            removed=$((removed + 1))
+        fi
+    done
+    shopt -u nullglob
+
+    if [ "${removed}" -eq 0 ]; then
+        echo -e "${YELLOW}  No había skills de specai instaladas en Hermes.${NC}"
+    fi
+    echo -e "\n${GREEN}${BOLD}Desinstalación de Hermes completada.${NC}\n"
+}
+
+# TUI Menu
+show_menu() {
+    while true; do
+        print_header
+        echo -e "Seleccioná una opción para configurar ${BOLD}specai${NC}:"
+        echo ""
+        echo -e "  ${CYAN}[Antigravity]${NC}"
+        echo -e "    ${BOLD}1)${NC} ${GREEN}Instalar${NC} specai como plugin"
+        echo -e "    ${BOLD}2)${NC} ${RED}Desinstalar${NC} specai como plugin"
+        echo ""
+        echo -e "  ${CYAN}[Hermes]${NC}"
+        echo -e "    ${BOLD}3)${NC} ${GREEN}Instalar${NC} skills de specai en Hermes"
+        echo -e "    ${BOLD}4)${NC} ${RED}Desinstalar${NC} skills de specai de Hermes"
+        echo ""
+        echo -e "  ${CYAN}[OpenCode / Subagentes]${NC}"
+        echo -e "    ${BOLD}5)${NC} Inyectar/Configurar subagentes en OpenCode"
+        echo -e "    ${BOLD}6)${NC} Configurar modelos de subagentes"
+        echo -e "    ${BOLD}7)${NC} ${RED}Desinstalar${NC} agentes de OpenCode"
+        echo -e "    ${BOLD}8)${NC} ${RED}Purgar${NC} agentes + configuración de OpenCode"
+        echo ""
+        echo -e "  ${CYAN}[Actualización]${NC}"
+        echo -e "    ${BOLD}9)${NC} ${GREEN}Actualizar${NC} plugin + agentes + skills Hermes (post git pull)"
+        echo ""
+        echo -e "  ${BOLD}10)${NC} Salir"
+        echo ""
+        read -rp "Seleccioná una opción [1-10]: " opt
+        case $opt in
+            1)
+                print_header
+                install_plugin
+                read -n 1 -s -r -p "Presioná cualquier tecla para volver..."
+                ;;
+            2)
+                print_header
+                uninstall_plugin
+                read -n 1 -s -r -p "Presioná cualquier tecla para volver..."
+                ;;
+            3)
+                print_header
+                install_hermes
+                read -n 1 -s -r -p "Presioná cualquier tecla para volver..."
+                ;;
+            4)
+                print_header
+                uninstall_hermes
+                read -n 1 -s -r -p "Presioná cualquier tecla para volver..."
+                ;;
+            5)
+                print_header
+                setup_opencode
+                read -n 1 -s -r -p "Presioná cualquier tecla para volver..."
+                ;;
+            6)
+                print_header
+                configure_models
+                read -n 1 -s -r -p "Presioná cualquier tecla para volver..."
+                ;;
+            7)
+                print_header
+                uninstall_opencode
+                read -n 1 -s -r -p "Presioná cualquier tecla para volver..."
+                ;;
+            8)
+                print_header
+                echo -e "${YELLOW}⚠️  Esto eliminará los agentes Y el directorio ~/.config/specai/${NC}"
+                read -rp "¿Estás seguro? [s/N]: " confirm
+                if [[ "$confirm" =~ ^[sS]$ ]]; then
+                    purge_opencode
+                else
+                    echo -e "${BLUE}Cancelado.${NC}"
+                fi
+                read -n 1 -s -r -p "Presioná cualquier tecla para volver..."
+                ;;
+            9)
+                print_header
+                update_all
+                read -n 1 -s -r -p "Presioná cualquier tecla para volver..."
+                ;;
+            10)
+                echo -e "\n${BLUE}¡Chau!${NC}\n"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}Opción inválida. Intentá de nuevo.${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# Help / Usage
+show_help() {
+    echo -e "${CYAN}${BOLD}specai CLI Manager${NC}"
+    echo -e "Uso: ./specai [comando]"
+    echo ""
+    echo -e "Comandos disponibles:"
+    echo -e "  ${GREEN}install${NC}             Instala specai como plugin de Gemini/Antigravity"
+    echo -e "  ${RED}uninstall${NC}           Remueve specai de Gemini/Antigravity"
+    echo -e "  ${GREEN}install-hermes${NC}      Symlinkea los skills de specai en ~/.hermes/skills/"
+    echo -e "  ${RED}uninstall-hermes${NC}    Remueve los symlinks de specai en ~/.hermes/skills/"
+    echo -e "  ${BLUE}setup${NC}               Configura los subagentes en OpenCode"
+    echo -e "  ${BLUE}config${NC}              Open interactive TUI for configuration"
+    echo -e "  ${RED}uninstall-opencode${NC}  Remueve los agentes specai de OpenCode"
+    echo -e "  ${RED}purge${NC}               Remueve agentes + elimina ~/.config/specai/"
+    echo -e "  ${GREEN}update${NC}              Re-vincula plugin, re-inyecta agentes y re-linkea skills Hermes (post git pull)"
+    echo -e "  ${YELLOW}help${NC}                Muestra esta ayuda"
+    echo ""
+    echo -e "Si ejecutás ./specai sin argumentos, se abrirá el menú interactivo (TUI)."
+}
+
+# Main routing
+case "$1" in
+    install|--install|-i)
+        install_plugin
+        ;;
+    uninstall|--uninstall)
+        uninstall_plugin
+        ;;
+    install-hermes|--install-hermes)
+        install_hermes
+        ;;
+    uninstall-hermes|--uninstall-hermes)
+        uninstall_hermes
+        ;;
+    setup|--setup)
+        setup_opencode
+        ;;
+    config|--config)
+        bash "${REPO_ROOT}/scripts/specai-tui.sh"
+        ;;
+    uninstall-opencode|--uninstall-opencode)
+        uninstall_opencode
+        ;;
+    purge|--purge)
+        purge_opencode
+        ;;
+    update|--update|-u)
+        update_all
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    "")
+        show_menu
+        ;;
+    *)
+        echo -e "${RED}Comando desconocido: $1${NC}"
+        show_help
+        exit 1
+        ;;
+esac

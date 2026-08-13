@@ -1,0 +1,44 @@
+{
+  "name": "specai",
+  "version": "1.0.3",
+  "description": "SpecAI workflow: planning, TDD, debugging, and delivery workflows for coding agents.",
+  "author": {
+    "name": "ArceApps",
+    "url": "https://github.com/ArceApps"
+  },
+  "homepage": "https://github.com/ArceApps/specai",
+  "repository": "https://github.com/ArceApps/specai",
+  "license": "MIT",
+  "keywords": [
+    "brainstorming",
+    "subagent-driven-development",
+    "specai",
+    "planning",
+    "tdd",
+    "debugging",
+    "code-review",
+    "workflow",
+    "antigravity",
+    "opencode"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "specai",
+    "shortDescription": "Planning, TDD, debugging, and delivery workflows for coding agents",
+    "longDescription": "specai guides agent work through Socratic definition, grill-me and write-prd design steps, implementation planning, test-driven development, systematic debugging, parallel execution, code review, and finish-the-branch workflows.",
+    "developerName": "ArceApps",
+    "category": "Coding",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "I've got an idea for something I'd like to build.",
+      "Let's add a feature to this project."
+    ],
+    "websiteURL": "https://github.com/ArceApps/specai",
+    "privacyPolicyURL": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement",
+    "termsOfServiceURL": "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service",
+    "brandColor": "#018786",
+    "composerIcon": "./assets/specai-icon.svg",
+    "logo": "./assets/specai-icon.svg",
+    "screenshots": []
+  }
+}
