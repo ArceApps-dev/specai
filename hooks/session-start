@@ -14,8 +14,14 @@ if [ -d "$legacy_skills_dir" ]; then
     warning_message="\n\n<important-reminder>IN YOUR FIRST REPLY AFTER SEEING THIS MESSAGE YOU MUST TELL THE USER:⚠️ **WARNING:** specai now uses the skills system. Custom skills in ~/.config/specai/skills will not be read. Move custom skills to ~/.claude/skills instead. To make this message go away, remove ~/.config/specai/skills</important-reminder>"
 fi
 
-# Read using-specai content
-using_specai_content=$(cat "${PLUGIN_ROOT}/skills/using-specai/SKILL.md" 2>&1 || echo "Error reading using-specai skill")
+# Read the canonical bootstrap skill. A missing bootstrap is a broken
+# installation, not content to inject into the next session.
+bootstrap_skill="${PLUGIN_ROOT}/skills/specai-bootstrap/SKILL.md"
+if [[ ! -f "$bootstrap_skill" ]]; then
+    printf 'session-start: missing canonical skill: %s\n' "$bootstrap_skill" >&2
+    exit 1
+fi
+using_specai_content=$(<"$bootstrap_skill")
 
 # Escape string for JSON embedding using bash parameter substitution.
 escape_for_json() {

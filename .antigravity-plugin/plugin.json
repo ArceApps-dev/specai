@@ -1,0 +1,14 @@
+{
+  "name": "specai",
+  "description": "SpecAI workflow skills from the canonical ./skills/ source (39 skills) for Antigravity",
+  "version": "1.0.3",
+  "author": {
+    "name": "ArceApps",
+    "url": "https://github.com/ArceApps"
+  },
+  "homepage": "https://github.com/ArceApps/specai",
+  "repository": "https://github.com/ArceApps/specai",
+  "license": "MIT",
+  "skills": "./skills/",
+  "skillCount": 39
+}

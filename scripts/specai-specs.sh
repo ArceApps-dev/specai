@@ -110,7 +110,15 @@ case "$command_name" in
   validate)
     [[ $# -le 3 && $# -ge 2 ]] || { usage; exit 2; }
     validate_feature_id "$feature_id"
-    validate_artifacts "$feature_id" "${3:-.}"
+    repo_root=""
+    if [[ $# -eq 3 ]]; then
+      repo_root="$3"
+    elif [[ -n "${SPECIAI_ROOT:-}" ]]; then
+      repo_root="$SPECIAI_ROOT"
+    else
+      die "repository root is required: pass [repo-root] or set SPECIAI_ROOT"
+    fi
+    validate_artifacts "$feature_id" "$repo_root"
     ;;
   *)
     usage

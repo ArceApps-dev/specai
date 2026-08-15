@@ -15,7 +15,7 @@ Ejecuta el flujo completo y rígido para una nueva funcionalidad:
 
 No se puede saltar, reordenar ni abreviar ninguna fase.
 
-Mini mode uses the same six artifacts in a compact form: `prd.md`, `spec.md`, `designs.md`, `plan.md`, `tasks.md`, and `verify.md`. Compactness reduces explanation density and ceremony only; it does not remove task fields, global Given/When/Then criteria, evidence, corrective loop, branch gate, or user-acceptance gate.
+Mini mode uses the same six feature artifacts in a compact form with the shared `<spec-name>` prefix: `<spec-name>-prd.md`, `<spec-name>-spec.md`, `<spec-name>-designs.md`, `<spec-name>-plan.md`, `<spec-name>-tasks.md`, and `<spec-name>-verify.md`. Compactness reduces explanation density and ceremony only; it does not remove task fields, global Given/When/Then criteria, evidence, corrective loop, branch gate, or user-acceptance gate.
 
 ## Reglas del flujo
 

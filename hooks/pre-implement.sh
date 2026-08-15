@@ -3,16 +3,23 @@
 # Install: ln -s ../../hooks/pre-implement.sh .git/hooks/pre-commit
 # Or: copy to .git/hooks/pre-commit
 
-set -e
+set -euo pipefail
 
-# ---- Configuration ----
-SPEC_DIR="docs/specai"
-PLAN_FILE="_plan.md"
-SPEC_FILE="_spec.md"
-REQUIRED_FILES=()
+# Resolve state from the consumer project, never from the SpecAI distribution.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)"
+SPEC_ROOT="${SPECIAI_ROOT:-$REPO_ROOT}"
+SPEC_DIR="$SPEC_ROOT/docs/specai"
 
-# Find the most recent specai directory
-LATEST_SPEC=$(ls -dt ${SPEC_DIR}/*/ 2>/dev/null | head -1 || echo "")
+find_latest_feature_dir() {
+  [[ -d "$SPEC_DIR" ]] || return 0
+  find "$SPEC_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null \
+    | while IFS= read -r -d '' directory; do
+        feature_id="$(basename "$directory")"
+        [[ -f "$directory/${feature_id}-plan.md" ]] || continue
+        printf '%s\t%s\n' "$(stat -c %Y "$directory/${feature_id}-plan.md" 2>/dev/null || stat -f %m "$directory/${feature_id}-plan.md")" "$directory"
+      done \
+    | sort -rn | head -1 | cut -f2-
+}
 
 echo "🔒 specai enforcement gate: pre-implement check"
 
@@ -24,18 +31,22 @@ if [[ "$BRANCH" != feature/* ]]; then
   exit 0
 fi
 
-# Check for plan file
-if [[ ! -f "$PLAN_FILE" ]]; then
-  echo "   ❌ BLOCKED: No _plan.md found."
+# Check for the active feature plan
+LATEST_SPEC="$(find_latest_feature_dir || true)"
+if [[ -z "$LATEST_SPEC" ]]; then
+  echo "   ❌ BLOCKED: No feature plan found under docs/specai/<feature-id>."
   echo "   specai requires a plan before implementation."
-  echo "   Run '/specai-propose' or '/specai-execute' to create one."
+  echo "   Run '/specai-plan' to create one."
   echo "   To bypass (emergency only): git commit --no-verify"
   exit 1
 fi
 
-# Check for spec file
-if [[ -n "$LATEST_SPEC" ]] && [[ ! -f "${LATEST_SPEC}designs.md" ]] && [[ ! -f "$SPEC_FILE" ]]; then
-  echo "   ⚠️  Warning: No design spec found. Continuing but recommended to create one."
+# Check for the task document that accompanies the plan.
+feature_id="$(basename "$LATEST_SPEC")"
+TASKS_FILE="$LATEST_SPEC/${feature_id}-tasks.md"
+if [[ ! -f "$TASKS_FILE" ]]; then
+  echo "   ❌ BLOCKED: No feature tasks file found: $TASKS_FILE"
+  exit 1
 fi
 
 echo "   ✅ Spec/Plan check passed."

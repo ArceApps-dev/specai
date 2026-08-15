@@ -442,7 +442,7 @@ The plugin auto-registers:
 - **7 subagents** (`@implementer`, `@build-fixer`, `@code-reviewer`, `@verifier`, `@spec-compliance-reviewer`, `@specai-command`, `@specai-documentation`)
 - **12 slash commands** (`/specai-plan`, `/specai-mini`, `/specai-explore`, `/specai-verify`, `/specai-review`, `/specai-iterate`, `/specai-mode`, `/specai-audit`, `/specai-audit-plan`, `/specai-backlog`, `/specai-init`, `/specai-config`)
 - **1 built-in tool** (`specai-configure-model`)
-- **All 37 skills** under `skills/`
+- **All 39 skills** under `skills/`
 
 > **Why so many skills for so few commands?** The number of skills and the
 > number of slash commands are decoupled on purpose. Each skill is a
@@ -471,7 +471,7 @@ Use the unified manager:
 ```bash
 ./specai                # Interactive TUI menu
 ./specai install        # Symlink skills into Antigravity
-./specai install-hermes # Symlink all 37 skills into ~/.hermes/skills/ (per-skill)
+./specai install-hermes # Symlink all 39 skills into ~/.hermes/skills/ (per-skill)
 ./specai setup          # Configure subagents in OpenCode
 ```
 

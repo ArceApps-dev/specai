@@ -18,7 +18,11 @@ Run the script from the project root:
 ./specai uninstall    # remove the plugin symlink
 ```
 
-The install command creates a symlink from the repo's `.antigravity-plugin/` directory to:
+The install command first synchronizes the complete Antigravity projection from
+the canonical `skills/` directory. It uses relative skill symlinks when the
+environment supports them and materializes equivalent `SKILL.md` copies when
+symlinks are unavailable. It then creates a symlink from the repo's
+`.antigravity-plugin/` directory to:
 
 `~/.gemini/config/plugins/specai/`
 
@@ -27,34 +31,35 @@ After installation, **restart Antigravity** so it picks up the plugin.
 ### Option 2: Manual plugin symlink (alternative)
 
 ```bash
+./scripts/sync-antigravity-plugin.sh --check
 mkdir -p ~/.gemini/config/plugins
 ln -s /path/to/specai/.antigravity-plugin ~/.gemini/config/plugins/specai
 ```
 
 ## Available Skills
 
-After installation, these skills will be available in Antigravity (mirroring the upstream `skills/` directory in this repo):
+After installation, Antigravity exposes exactly 39 skills from the canonical
+`skills/` directory in this repository:
 
-| Skill | Description |
-|-------|-------------|
-| **specai-bootstrap** | Session-start rules: how to discover and invoke skills |
-| **specai-grill-me** | Socratic one-question-at-a-time interview for design clarification |
-| **specai-write-prd** | Synthesize the interview into a 6-section PRD |
-| **specai-writing-plans** | Atomic implementation plans with acceptance criteria |
-| **specai-subagent-driven-development** | Execute plans task-by-task with the agent team |
-| **specai-test-driven-development** | RED-GREEN-REFACTOR cycle |
-| **specai-systematic-debugging** | 4-phase root-cause analysis |
-| **specai-code-review** | Pre-commit code review |
-| **specai-requesting-code-review** | Pre-review checklist |
-| **specai-receiving-code-review** | How to respond to review feedback |
-| **specai-using-git-worktrees** | Parallel development with isolated branches |
-| **specai-finishing-a-development-branch** | Merge / PR / keep / discard workflow |
-| **specai-iteration** | User feedback loop after completion |
-| **specai-senior-philosophy** | Anti-overengineering decision ladder |
-| **specai-verification-before-completion** | Verify before declaring done |
-| **specai-antigravity-bridge** | Anti-`enter_plan_mode` guard — keeps Antigravity aligned with the specai flow |
+`specai-adr`, `specai-agent-clarification`, `specai-agent-models`,
+`specai-anti-bloat`, `specai-antigravity-bridge`,
+`specai-assumptions-consolidation`, `specai-audit-plan`, `specai-backlog`,
+`specai-bootstrap`, `specai-checkpoints`, `specai-code-review`,
+`specai-command`, `specai-dispatching-parallel-agents`,
+`specai-documentation`, `specai-domain-modeling`, `specai-evals`,
+`specai-executing-plans`, `specai-finishing-a-development-branch`,
+`specai-grill-me`, `specai-help`, `specai-improve-codebase-architecture`,
+`specai-iteration`, `specai-judgment-day`, `specai-living-documents`,
+`specai-onboarding`, `specai-plan`, `specai-receiving-code-review`,
+`specai-requesting-code-review`, `specai-senior-philosophy`, `specai-status`,
+`specai-subagent-driven-development`, `specai-systematic-debugging`,
+`specai-test-driven-development`, `specai-using-git-worktrees`,
+`specai-verification-before-completion`, `specai-which`, `specai-write-prd`,
+`specai-writing-plans`, and `specai-writing-skills`.
 
-> The list above is a curated subset of all skills shipped in `skills/`. Run `./specai install && ls .antigravity-plugin/skills/` to see what was actually linked into the symlink.
+The projection contains one entry for every canonical `skills/<name>/SKILL.md`.
+Run `./scripts/sync-antigravity-plugin.sh --check` to verify that it is
+complete and synchronized.
 
 ## Quick Start
 
@@ -79,7 +84,7 @@ SpecAI turns Antigravity into a multi-agent development team:
 
 1. **Socratic clarification (`grill-me`)** — one question at a time, mapped against the real codebase, no assumptions.
 2. **PRD (`write-prd`)** — the resolved tree becomes a 6-section Product Requirements Document.
-3. **Plan (`writing-plans`)** — atomic tasks (2–5 min), acceptance criteria, branch-first.
+3. **Plan (`writing-plans`)** — atomic tasks (2–5 min), acceptance criteria, and a branch only after approval and the implementation choice.
 4. **Subagent-driven execution** — each task by an `implementer` → build → review → commit → document.
 5. **Verification** — `verifier` checks the plan; **`Gate UA` (user acceptance)** is the only signal that matters.
 
@@ -114,7 +119,7 @@ cp -r ~/.gemini/config/plugins/specai/skills/specai-writing-plans .agents/skills
 **Skills not appearing?**
 - Restart Antigravity after installation.
 - Confirm `~/.gemini/config/plugins/specai` exists and points to this repo's `.antigravity-plugin/`.
-- Run `bash scripts/specai-doctor.sh` — it flags drift between `skills/` and the symlinked plugin.
+- Run `bash scripts/sync-antigravity-plugin.sh --check` — it flags drift between `skills/` and the plugin projection.
 
 **Skills loading but behaving oddly?**
 - Antigravity's `Provide Feedback` in Agent Manager captures useful traces.

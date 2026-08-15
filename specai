@@ -53,8 +53,22 @@ find_desktop_workspace() {
 }
 
 # Install specai as a Gemini/Antigravity plugin
+sync_antigravity_plugin() {
+    local sync_script="${REPO_ROOT}/scripts/sync-antigravity-plugin.sh"
+    if [ ! -f "${sync_script}" ]; then
+        echo -e "${RED}Error: No se encontró scripts/sync-antigravity-plugin.sh${NC}"
+        exit 1
+    fi
+
+    echo -e "${CYAN}Sincronizando la proyección de skills canónicos...${NC}"
+    bash "${sync_script}"
+    echo -e "${CYAN}Validando la proyección de skills canónicos...${NC}"
+    bash "${sync_script}" --check
+}
+
 install_plugin() {
     echo -e "${BLUE}Instalando specai como plugin de Gemini/Antigravity...${NC}"
+    sync_antigravity_plugin
 
     if [ ! -d "${PLUGIN_DIR}" ]; then
         echo -e "${RED}Error: El directorio de plugin ${PLUGIN_DIR} no existe.${NC}"
