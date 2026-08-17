@@ -470,16 +470,37 @@ Use the unified manager:
 
 ```bash
 ./specai                # Interactive TUI menu
-./specai install        # Symlink skills into Antigravity
+./specai install        # Sync 39 skills and 7 native subagent definitions into Antigravity
 ./specai install-hermes # Symlink all 39 skills into ~/.hermes/skills/ (per-skill)
 ./specai setup          # Configure subagents in OpenCode
 ```
 
-Each harness has its own configuration (e.g., `.antigravity-plugin/`, `.cursor-plugin/`, `.codex-plugin/`, `.droid-plugin/`). Hermes is the one exception — there is no `.hermes-plugin/` because Hermes discovers skills by reading individual `SKILL.md` files under `$HERMES_HOME/skills/`. The manager just symlinks the skills directory, nothing else.
+Each harness has its own configuration (e.g., `.antigravity-plugin/`, `.cursor-plugin/`, `.codex-plugin/`, `.droid-plugin/`). Antigravity discovers the seven native subagents under `.antigravity-plugin/agents/` and dispatches them with `invoke_subagent`. Hermes is the one exception — there is no `.hermes-plugin/` because Hermes discovers skills by reading individual `SKILL.md` files under `$HERMES_HOME/skills/`.
 
 - **Factory Droid**: Factory Droid automatically picks up project instructions from `AGENTS.md` and respects the specai workflow when the harness loads.
 - **GitHub Copilot CLI**: Leverages `additionalContext` in the `sessionStart` hook (detected via the `COPILOT_CLI` environment variable) to inject the full specai bootstrap at session start.
-- **Hermes (Nous Research)**: skills are symlinked into `~/.hermes/skills/<name>` (one per skill). Run `hermes skills list | grep specai` to verify. Note: Hermes does not consume `commands.json` or subagent definitions — it discovers skills directly via `SKILL.md` frontmatter, so the 12 slash commands and 7 subagents are OpenCode-only.
+- **Hermes (Nous Research)**: skills are symlinked into `~/.hermes/skills/<name>` (one per skill). Run `hermes skills list | grep specai` to verify. Hermes does not consume `commands.json` or native subagent definitions; its scope is the skill projection.
+
+### Native subagent harness contract
+
+The same seven-role roster is projected through each native harness:
+
+| Harness | Native dispatch | Required capability |
+|---------|-----------------|---------------------|
+| OpenCode | `delegate` | seven roles registered as `mode: subagent` |
+| Codex | `spawn_agent` → `wait_agent` → `close_agent` | `[features] multi_agent = true` |
+| Antigravity | `invoke_subagent` | seven Markdown agents with `subagent: true` |
+
+All handoffs use the shared `scripts/agent-harness-contract.json`: 900-second
+maximum runtime, 15-second polling and 30-second heartbeat. Run the read-only
+diagnostic before dispatching:
+
+```bash
+bash scripts/specai-harness-doctor.sh --json
+```
+
+If a native capability is missing, SpecAI blocks with an actionable diagnosis;
+it never silently executes the work inline.
 
 ### Post-Clone Update
 

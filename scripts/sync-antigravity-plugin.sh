@@ -29,6 +29,8 @@ done
 skills_root="$root/skills"
 plugin_root="$root/.antigravity-plugin"
 projection_root="$plugin_root/skills"
+agent_root="$plugin_root/agents"
+roster_file="$root/scripts/agent-roster.json"
 
 if [[ ! -d "$skills_root" ]]; then
   printf 'ANTIGRAVITY_PROJECTION_BLOCKED: missing canonical skills directory: %s\n' "$skills_root" >&2
@@ -59,6 +61,57 @@ if [[ -z "${expected_targets[specai-bootstrap]+present}" ]]; then
   printf 'ANTIGRAVITY_PROJECTION_BLOCKED: required canonical skill is missing: specai-bootstrap\n' >&2
   exit 1
 fi
+
+validate_agent_projection() {
+  python3 - "$agent_root" "$roster_file" <<'PY'
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+roster_path = Path(sys.argv[2])
+try:
+    roster = json.loads(roster_path.read_text(encoding="utf-8"))
+    expected = {agent["name"] for agent in roster["agents"]}
+except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
+    raise SystemExit(f"ANTIGRAVITY_PROJECTION_BLOCKED: invalid roster: {roster_path}")
+if not root.is_dir():
+    raise SystemExit(f"ANTIGRAVITY_PROJECTION_BLOCKED: missing agent directory: {root}")
+files = {path.stem for path in root.glob("*.md") if path.is_file()}
+if files != expected:
+    raise SystemExit(
+        f"ANTIGRAVITY_PROJECTION_BLOCKED: agent roles {sorted(files)} != {sorted(expected)}"
+    )
+for role in sorted(expected):
+    path = root / f"{role}.md"
+    raw = path.read_text(encoding="utf-8")
+    match = re.match(r"^---\n([\s\S]*?)\n---\n", raw)
+    if not match:
+        raise SystemExit(f"ANTIGRAVITY_PROJECTION_BLOCKED: invalid frontmatter: {path}")
+    frontmatter = match.group(1)
+    required = {
+        "name:": role,
+        "description:": None,
+        "subagent:": "true",
+        "mainAgent:": "false",
+        "model:": None,
+        "commandExecutionPolicy:": "sandbox",
+        "tools:": None,
+    }
+    for key, expected_value in required.items():
+        line = next((item for item in frontmatter.splitlines() if item.startswith(key)), None)
+        if line is None or (expected_value is not None and line.split(":", 1)[1].strip() != expected_value):
+            raise SystemExit(f"ANTIGRAVITY_PROJECTION_BLOCKED: {path} missing valid {key}")
+    if "/specai-plan" not in raw and "/specai-mini" not in raw:
+        raise SystemExit(f"ANTIGRAVITY_PROJECTION_BLOCKED: {path} missing SpecAI handoff entrypoint")
+print(f"agent projection: PASS ({len(expected)} roles)")
+PY
+}
+
+validate_agent_projection
 
 supports_symlinks() {
   local probe_dir

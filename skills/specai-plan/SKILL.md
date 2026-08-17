@@ -61,6 +61,21 @@ espera. El controlador conserva el handle y vuelve a consultar; no interrumpe,
 no marca fallo y no relanza el agente. Solo un estado terminal permite cerrar
 el handoff.
 
+### Lifecycle acotado de Codex
+
+Antes de `spawn_agent`, el adaptador comprueba que `[features]
+multi_agent = true`. Si falta esa capacidad, el handoff termina como
+`TASK_BLOCKED` con una acción de reparación; no se ejecuta inline ni se usa un
+fallback silencioso. Todo handoff registra `Max Runtime: 900 seconds`,
+`Deadline: 900 seconds`, `Heartbeat every 30 seconds` y `Poll interval: 15
+seconds`.
+
+Mientras no exista un estado terminal, se conserva el mismo handle. Al vencer
+el deadline se solicita la cancelación nativa mediante `cancel_agent`, se
+registra `TASK_FAILED` con el motivo `deadline_exceeded` y después se libera el
+handle con `close_agent`. Nunca se relanza el trabajo automáticamente ni se
+reutiliza contexto heredado.
+
 ## Preflight incremental de cobertura
 
 El grounding debe identificar la unidad semántica afectada por la feature y limitar la revisión a ese código, sus entrypoints, pruebas y documentación relacionada. No se debe inventariar todo el repositorio para crear specs globales.

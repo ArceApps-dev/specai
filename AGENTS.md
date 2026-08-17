@@ -43,6 +43,25 @@ Agent models are configurable per role and the current source of truth is `scrip
 | `specai-command` | Ejecuta comandos (build, test, git). Ningún otro agente ejecuta comandos directamente | Configurado en `scripts/agent-roster.json`/config |
 | `specai-documentation` | Crea y actualiza toda la documentación (_plan.md, _tasks.md, specs, README). Ningún otro agente escribe documentación directamente | Configurado en `scripts/agent-roster.json`/config |
 
+## Native Subagent Harness Contract
+
+The canonical contract is `scripts/agent-harness-contract.json`; the roster in
+`scripts/agent-roster.json` remains the only source for role names and default
+models. Platform adapters must use their native subagent lifecycle:
+
+| Harness | Dispatch | Poll/close | Required preflight |
+|---------|----------|------------|--------------------|
+| OpenCode | `delegate` | native handle lifecycle | seven roles from the roster |
+| Codex | `spawn_agent` | `wait_agent` / `close_agent` | `[features] multi_agent = true` |
+| Antigravity | `invoke_subagent` | native handle lifecycle | seven Markdown agents with `subagent: true` |
+
+Every handoff records `Max Runtime: 900 seconds`, `Deadline: 900 seconds`,
+`Heartbeat every 30 seconds`, and a 15-second poll interval. A missing native
+capability is `TASK_BLOCKED`; inline execution and silent fallback are
+forbidden. `timed_out` is non-terminal: retain the same handle, cancel only on
+an explicit deadline or user cancellation, and record `deadline_exceeded` when
+the deadline is reached.
+
 ## The SpecAI Flow
 
 The complete agentic flow is:

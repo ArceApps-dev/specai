@@ -255,6 +255,15 @@ When waiting for a spawned agent, `timed_out: true` is only the end of the
 current polling interval. Keep the same handle and poll again; do not cancel,
 retry, or mark the task failed until a terminal agent status exists.
 
+### Codex bounded lifecycle
+
+Preflight `multi_agent = true`; otherwise return `TASK_BLOCKED` — inline
+execution and silent fallback are forbidden. Every handoff carries `Max Runtime:
+900 seconds`, `Deadline: 900 seconds`, `Heartbeat every 30 seconds`, and a
+15-second poll interval. Keep the same handle across non-terminal polls. At
+deadline, call `cancel_agent`, record `TASK_FAILED` with `deadline_exceeded`,
+close the terminal handle, and never relaunch with inherited context.
+
 ### For the implementer:
 - DO NOT paste the full plan
 - DO NOT paste the execution log

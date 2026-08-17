@@ -473,16 +473,37 @@ Usá el manager unificado:
 
 ```bash
 ./specai                # Menú TUI interactivo
-./specai install        # Symlink skills into Antigravity
+./specai install        # Sincroniza 39 skills y 7 definiciones de subagentes nativos en Antigravity
 ./specai install-hermes # Symlinkea los 39 skills en ~/.hermes/skills/ (uno por skill)
 ./specai setup          # Configure subagents in OpenCode
 ```
 
-Cada harness tiene su propia configuración (ej. `.antigravity-plugin/`, `.cursor-plugin/`, `.codex-plugin/`, `.droid-plugin/`). Hermes es la excepción — no hay `.hermes-plugin/` porque Hermes descubre los skills leyendo directamente los `SKILL.md` bajo `$HERMES_HOME/skills/`. El manager solo symlinkea el directorio de skills, nada más.
+Cada harness tiene su propia configuración (ej. `.antigravity-plugin/`, `.cursor-plugin/`, `.codex-plugin/`, `.droid-plugin/`). Antigravity descubre los siete subagentes nativos bajo `.antigravity-plugin/agents/` y los despacha con `invoke_subagent`. Hermes es la excepción — no hay `.hermes-plugin/` porque descubre los skills leyendo directamente los `SKILL.md` bajo `$HERMES_HOME/skills/`.
 
 - **Factory Droid**: Factory Droid levanta automáticamente las reglas e instrucciones del proyecto desde `AGENTS.md` y respeta el flujo de specai al cargar el harness.
 - **GitHub Copilot CLI**: Aprovecha la inyección de contexto de `additionalContext` en el hook `sessionStart` (detectado mediante la variable de entorno `COPILOT_CLI`) para inyectar el bootstrap completo de specai al iniciar la sesión.
-- **Hermes (Nous Research)**: los skills se symlinkean a `~/.hermes/skills/<name>` (uno por skill). Verificá con `hermes skills list | grep specai`. Aclaración: Hermes **no** consume `commands.json` ni las definiciones de subagentes — descubre skills directamente por el frontmatter de `SKILL.md`, así que los 12 slash commands y los 7 subagentes son solo de OpenCode.
+- **Hermes (Nous Research)**: los skills se symlinkean a `~/.hermes/skills/<name>` (uno por skill). Verificá con `hermes skills list | grep specai`. Hermes no consume `commands.json` ni definiciones de subagentes nativos; su alcance es la proyección de skills.
+
+### Contrato de subagentes nativos
+
+El mismo roster de siete roles se proyecta mediante cada harness nativo:
+
+| Harness | Dispatch nativo | Capacidad requerida |
+|---------|-----------------|---------------------|
+| OpenCode | `delegate` | siete roles registrados como `mode: subagent` |
+| Codex | `spawn_agent` → `wait_agent` → `close_agent` | `[features] multi_agent = true` |
+| Antigravity | `invoke_subagent` | siete agentes Markdown con `subagent: true` |
+
+Todos los handoffs usan `scripts/agent-harness-contract.json`: 900 segundos
+de runtime máximo, polling de 15 segundos y heartbeat de 30 segundos. Ejecuta
+el diagnóstico read-only antes de despachar:
+
+```bash
+bash scripts/specai-harness-doctor.sh --json
+```
+
+Si falta una capacidad nativa, SpecAI se bloquea con un diagnóstico accionable;
+nunca ejecuta el trabajo inline de forma silenciosa.
 
 ### Actualización Post-Clone
 

@@ -12,11 +12,15 @@ CONFIG_FILE="$CONFIG_DIR/config.json"
 OPENCODE_CONFIG="$HOME/.config/opencode/opencode.json"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROSTER_FILE="$SCRIPT_DIR/agent-roster.json"
+HARNESS_CONTRACT="${SPECAI_HARNESS_CONTRACT:-$SCRIPT_DIR/agent-harness-contract.json}"
 
 # Force OpenCode harness configuration for OpenCode agent setup
 export SPECAI_HARNESS=opencode
 # Source configuration helper
 source "$(dirname "$0")/lib-config.sh"
+
+# Validate the native harness contract before reading or writing any projection.
+python3 "$SCRIPT_DIR/validate-harness-contract.py" "$HARNESS_CONTRACT" --roster "$ROSTER_FILE" >/dev/null
 
 roster_default_model() {
   python3 - "$ROSTER_FILE" "$1" <<'PY'
@@ -178,6 +182,11 @@ except (FileNotFoundError, json.JSONDecodeError):
 
 if 'agent' not in cfg:
     cfg['agent'] = {}
+
+# Remove only the retired SpecAI role names. Unrelated user-defined agents are
+# preserved; the canonical seven are then replaced from the roster below.
+for legacy_name in ("spec-reviewer", "code-quality-reviewer", "final-reviewer"):
+    cfg['agent'].pop(legacy_name, None)
 
 # Add/replace specai agents
 for name, agent_def in agents.items():

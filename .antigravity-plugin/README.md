@@ -61,6 +61,23 @@ The projection contains one entry for every canonical `skills/<name>/SKILL.md`.
 Run `./scripts/sync-antigravity-plugin.sh --check` to verify that it is
 complete and synchronized.
 
+## Native subagents
+
+Antigravity also discovers exactly seven native subagent definitions under
+`.antigravity-plugin/agents/`, derived from `scripts/agent-roster.json`:
+
+`implementer`, `build-fixer`, `code-reviewer`, `verifier`,
+`spec-compliance-reviewer`, `specai-command`, and `specai-documentation`.
+
+Each definition uses `subagent: true`, `mainAgent: false`, a sandbox command
+policy, and a minimal role-specific tool allowlist. The bridge dispatches them
+with `invoke_subagent`; missing native capacity is a blocked handoff, never an
+inline fallback. The read-only diagnostic is:
+
+```bash
+bash scripts/specai-harness-doctor.sh --json
+```
+
 ## Quick Start
 
 1. Install: `./specai install`

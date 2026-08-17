@@ -9,7 +9,7 @@ metadata:
 
 ## Problem
 
-Antigravity activates its own `enter_plan_mode` tool by default. Inside a project running the specai workflow, this means it proposes a parallel plan that ignores `_plan.md` / `_tasks.md` and skips the socratic → brainstorming → planning gates. OpenCode and Claude Code respect the specai rules in `AGENTS.md`; Antigravity does not.
+Antigravity activates its own `enter_plan_mode` tool by default. Inside a project running the specai workflow, this means it can propose a parallel plan that ignores `_plan.md` / `_tasks.md` and skips the socratic → grill-me → planning gates. The bridge keeps that plan mode behind the SpecAI gates and routes approved role work through Antigravity's native `invoke_subagent` harness.
 
 ## Behavior Rules
 
@@ -19,6 +19,9 @@ These are absolute directives. Follow them exactly.
 2. NEVER propose a parallel plan; read the existing `_plan.md` and follow it task-by-task.
 3. If no specai plan exists AND the user explicitly invokes `specai:plan` (or `/specai-plan`), follow the socratic flow before writing any plan.
 4. If neither condition holds, `enter_plan_mode` is permitted (default Antigravity behavior).
+5. During an approved implementation, dispatch only the named role through `invoke_subagent` with a fresh session and the minimal handoff allowlist.
+6. Apply the shared harness policy: `Max Runtime: 900 seconds`, `Deadline: 900 seconds`, `Heartbeat every 30 seconds`, and bounded polling. A missing native capability is `TASK_BLOCKED`; never execute inline or use a silent fallback.
+7. Serialize writes to `_plan.md` and `_tasks.md` through `specai-documentation`; command execution belongs to `specai-command`.
 
 If you violate these rules, the developer must restart the session.
 
@@ -32,6 +35,11 @@ If you violate these rules, the developer must restart the session.
 >    ├── User invoked `specai:plan` explicitly?
 >    │     YES → socratic → brainstorming → writing-plans
 >    │     NO  → `enter_plan_mode` is permitted (default Antigravity behavior)
+
+For an approved implementation, the next dispatch is always native:
+`invoke_subagent(role, fresh_session, minimal_handoff)`. If the role cannot be
+resolved or the harness lacks the required capability, stop as `TASK_BLOCKED`
+and report the repair action.
 
 ## AGENTS.md Guard Block
 
@@ -51,6 +59,7 @@ You open Antigravity in a repo where `specai:plan` already ran (so `_plan.md` an
 2. Antigravity matches the keyword `_plan.md` and loads `specai-antigravity-bridge`.
 3. The skill instructs Antigravity to read `_plan.md` and `_tasks.md` and follow them.
 4. Antigravity identifies the next pending task and proceeds — without calling `enter_plan_mode`.
+5. For the task handoff, Antigravity calls `invoke_subagent` for the canonical role, keeps the handle through non-terminal polling, and records the lifecycle event in the living documents.
 
 Counter-example: you open Antigravity in a brand-new repo and type `let's build X`.
 
@@ -62,4 +71,5 @@ Counter-example: you open Antigravity in a brand-new repo and type `let's build 
 - `specai:bootstrap` — the entry-point skill that teaches how to invoke all specai skills correctly.
 - `specai:writing-plans` — produces the `_plan.md` / `_tasks.md` this guard protects.
 - `specai:subagent-driven-development` — the per-task execution loop.
+- `scripts/agent-harness-contract.json` — shared dispatch, capability, and deadline contract.
 - `AGENTS.md` (this repo) — the root rule file that Antigravity reads.

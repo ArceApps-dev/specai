@@ -153,7 +153,28 @@ else
   check_warn "OpenCode config not found at $OPENCODE_CONFIG (opencode never ran yet?)"
 fi
 
-# 7. Acceptance criteria source
+# 7. Native subagent harness health
+HARNESS_DOCTOR="$SPECAI_DIR/scripts/specai-harness-doctor.sh"
+if [[ -f "$HARNESS_DOCTOR" ]]; then
+  harness_exit=0
+  harness_json="$(bash "$HARNESS_DOCTOR" --json 2>/dev/null)" || harness_exit=$?
+  harness_overall=$(python3 -c '
+import json, sys
+try:
+    print(json.loads(sys.argv[1]).get("overall", "FAIL"))
+except (IndexError, json.JSONDecodeError):
+    print("FAIL")
+' "$harness_json" 2>/dev/null || echo "FAIL")
+  case "$harness_overall" in
+    OK) check_ok "Native subagent harnesses: healthy" ;;
+    WARN) check_warn "Native subagent harnesses: warnings (run scripts/specai-harness-doctor.sh --json)" ;;
+    *) check_fail "Native subagent harnesses: blocked (run scripts/specai-harness-doctor.sh --json)" ;;
+  esac
+else
+  check_warn "Native harness doctor missing: $HARNESS_DOCTOR"
+fi
+
+# 8. Acceptance criteria source
 verifier_prompt="$SPECAI_DIR/skills/specai-subagent-driven-development/verifier-prompt.md"
 if [[ -f "$verifier_prompt" ]] && grep -Fq '<topic>_verify.md' "$verifier_prompt" && grep -Fq 'ONLY place acceptance criteria live' "$verifier_prompt"; then
   check_ok "Acceptance criteria source: _verify.md"
@@ -161,7 +182,7 @@ else
   check_warn "Verifier acceptance source is not explicitly _verify.md"
 fi
 
-# 8. Q5 — subagent-driven-development size budget
+# 9. Q5 — subagent-driven-development size budget
 sd_size=$(wc -l < "$SPECAI_DIR/skills/specai-subagent-driven-development/SKILL.md" 2>/dev/null || echo 0)
 if [[ $sd_size -le 500 ]]; then
   check_ok "subagent-driven-development skill size: $sd_size lines (≤500 budget)"
@@ -169,7 +190,7 @@ else
   check_warn "subagent-driven-development skill is $sd_size lines (over 500 budget — consider trimming)"
 fi
 
-# 9. No obsolete brainstorming references in active docs
+# 10. No obsolete brainstorming references in active docs
 obs_refs=$(grep -rE "brainstorming" "$SPECAI_DIR/AGENTS.md" "$SPECAI_DIR/README.md" "$SPECAI_DIR/README.es.md" 2>/dev/null | wc -l)
 if [[ "$obs_refs" -eq 0 ]]; then
   check_ok "No obsolete 'brainstorming' references in active docs (AGENTS.md, READMEs)"
@@ -177,9 +198,10 @@ else
   check_warn "Found $obs_refs obsolete 'brainstorming' references in active docs"
 fi
 
-# 10. Cheap-model routing for specai-documentation + specai-command
+# 11. Cheap-model routing for specai-documentation + specai-command
 if [[ -f "$OPENCODE_CONFIG" ]]; then
-  python3 -c "
+  cheap_model_check="NOT_CHEAP"
+  cheap_model_check="$(python3 -c "
 import json
 c = json.load(open('$OPENCODE_CONFIG'))
 a = c.get('agent', {})
@@ -191,8 +213,8 @@ for name in ['specai-documentation', 'specai-command']:
       break
 else:
   print('NOT_CHEAP')
-" 2>/dev/null | grep -q "OK"
-  if [[ $? -eq 0 ]]; then
+" 2>/dev/null)" || cheap_model_check="NOT_CHEAP"
+  if [[ "$cheap_model_check" == "OK" ]]; then
     check_ok "Cheap-model routing for documentation/command agents (cost advantage)"
   else
     check_warn "specai-documentation / specai-command not on cheap model (consider deepseek-v4-flash-free)"

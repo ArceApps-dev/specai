@@ -301,6 +301,36 @@ print("archive_parent_ready")
 PY
 }
 
+rewrite_archived_feature_links() {
+  local direction="${1:-forward}"
+  python3 - "$ARCHIVE_DIR" "$direction" <<'PY'
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+archive_dir = Path(sys.argv[1])
+direction = sys.argv[2]
+for path in sorted(archive_dir.rglob("*.md")):
+    if path.is_symlink():
+        raise SystemExit(f"SPEC_DRIFT: archived artifact must not be a symlink: {path}")
+    text = path.read_text(encoding="utf-8")
+    if direction == "forward":
+        updated = text.replace("](../project/", "](../../project/")
+    else:
+        updated = text.replace("](../../project/", "](../project/")
+    if updated == text:
+        continue
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=path.parent,
+        prefix=f".{path.name}.", delete=False,
+    ) as temp:
+        temp.write(updated)
+        temp_path = Path(temp.name)
+    os.replace(temp_path, path)
+PY
+}
+
 preflight() {
   validate_archive_parent
   validate_provenance_scopes
@@ -357,6 +387,7 @@ archive() {
   rollback() {
     if [[ "${ARCHIVE_COMPLETED:-false}" != true ]]; then
       if [[ -d "$ARCHIVE_DIR" && ! -e "$ACTIVE_DIR" ]]; then
+        rewrite_archived_feature_links reverse || true
         mv "$ARCHIVE_DIR" "$ACTIVE_DIR" || true
       fi
       cp "${ARCHIVE_BACKUP_FILE:-}" "$BACKLOG_FILE" || true
@@ -370,6 +401,7 @@ archive() {
   mkdir -p "$REPO_ROOT/docs/specai/feature"
   PROVENANCE_BACKUP_DIR="$(mktemp -d)"
   mv "$ACTIVE_DIR" "$ARCHIVE_DIR"
+  rewrite_archived_feature_links forward
   update_provenance
   python3 - "$BACKLOG_FILE" "$FEATURE_ID" <<'PY'
 import json

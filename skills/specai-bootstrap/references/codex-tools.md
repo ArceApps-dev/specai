@@ -66,6 +66,31 @@ deadline requires cancellation, send an explicit cancellation first and record
 the resulting terminal state as `TASK_FAILED`; never report a timeout alone as
 the cause of failure.
 
+## Bounded native lifecycle
+
+Every Codex dispatch has a bounded lifecycle. Before calling `spawn_agent`, the
+adapter must verify `[features] multi_agent = true`; if the capability is
+missing, the handoff is `TASK_BLOCKED` and the adapter must report the repair
+action. Inline execution, a forked controller context, and a silent fallback
+are forbidden. In particular, **inline execution is forbidden** when the
+native harness is unavailable.
+
+The handoff records these canonical values:
+
+- `Max Runtime: 900 seconds` — the total runtime budget for one handoff.
+- `Deadline: 900 seconds` — the absolute deadline calculated at dispatch.
+- `Heartbeat every 30 seconds` — an observable progress event that includes
+  the same agent handle and current lifecycle state.
+- `Poll interval: 15 seconds` — the bounded interval passed to `wait_agent`.
+
+`timed_out: true` only ends the current poll. The controller retains the same
+handle and polls again until a terminal state or the deadline. On deadline,
+the adapter issues the explicit `cancel_agent` operation, records
+`TASK_FAILED` with `deadline_exceeded`, and then closes the terminal handle with
+`close_agent`. It must never relaunch the task with copied or inherited
+context. A user cancellation follows the same explicit cancellation path and
+records the user's reason.
+
 ## Environment Detection
 
 Skills that create worktrees or finish branches should detect their

@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "policy": {
+    "maxRuntimeSeconds": 900,
+    "pollIntervalSeconds": 15,
+    "heartbeatIntervalSeconds": 30
+  },
+  "requiredCapabilities": [
+    "fresh_session",
+    "isolated_context",
+    "terminal_state"
+  ],
+  "harnesses": {
+    "opencode": {
+      "dispatch": "delegate",
+      "capabilities": [
+        "fresh_session",
+        "isolated_context",
+        "terminal_state"
+      ]
+    },
+    "codex": {
+      "dispatch": "spawn_agent",
+      "poll": "wait_agent",
+      "close": "close_agent",
+      "capabilities": [
+        "multi_agent",
+        "fresh_session",
+        "isolated_context",
+        "terminal_state"
+      ]
+    },
+    "antigravity": {
+      "dispatch": "invoke_subagent",
+      "agentDirectory": ".antigravity-plugin/agents",
+      "capabilities": [
+        "fresh_session",
+        "isolated_context",
+        "terminal_state"
+      ]
+    }
+  }
+}

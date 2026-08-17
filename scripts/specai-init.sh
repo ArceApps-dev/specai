@@ -15,6 +15,7 @@ CONFIG_FILE="$CONFIG_DIR/config.json"
 OPENCODE_CONFIG="$HOME/.config/opencode/opencode.json"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROSTER_FILE="$SCRIPT_DIR/agent-roster.json"
+HARNESS_CONTRACT="${SPECAI_HARNESS_CONTRACT:-$SCRIPT_DIR/agent-harness-contract.json}"
 PROJECT_ROOT="${SPECIAI_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 PROJECT_SPECS_DIR="$PROJECT_ROOT/docs/specai/project"
 
@@ -210,7 +211,7 @@ write_opencode_agents() {
 
   if [[ ! -f "$OPENCODE_CONFIG" ]]; then
     echo "   ⚠️  No opencode config found at $OPENCODE_CONFIG"
-    echo "   specai currently only supports OpenCode."
+    echo "   OpenCode must create its config before SpecAI can register its agents."
     echo "   Run 'opencode' once to generate the config file, then re-run this script."
     exit 1
   fi
@@ -235,6 +236,10 @@ except (FileNotFoundError, json.JSONDecodeError):
 # Ensure agent key exists
 if 'agent' not in config:
     config['agent'] = {}
+
+# Remove only the retired SpecAI role names; preserve unrelated user agents.
+for legacy_name in ('spec-reviewer', 'code-quality-reviewer', 'final-reviewer'):
+    config['agent'].pop(legacy_name, None)
 
 # 7 core agents
 agents = {
@@ -325,6 +330,9 @@ if [[ "$UNINSTALL" == true ]]; then
   exit 0
 fi
 
+# Validate the native harness contract before creating config or projecting agents.
+python3 "$SCRIPT_DIR/validate-harness-contract.py" "$HARNESS_CONTRACT" --roster "$ROSTER_FILE" >/dev/null
+
 ensure_config
 ensure_project_specs
 run_scoped_preflight
@@ -333,12 +341,18 @@ echo ""
 if [[ "$PLATFORM" == "opencode" ]]; then
   write_opencode_agents
 elif [[ "$PLATFORM" == "claude" ]] || [[ "$PLATFORM" == "codex" ]]; then
-  echo "   ⚠️  specai currently supports OpenCode for agent injection."
-  echo "   For $PLATFORM, install skills manually into the skills directory."
-  echo "   See docs/ for platform-specific instructions."
+  echo "   Native subagent dispatch is enabled by the platform harness contract."
+  if [[ "$PLATFORM" == "codex" ]]; then
+    echo "   Codex requires [features] multi_agent = true in ~/.codex/config.toml."
+    echo "   Run the harness doctor, enable the capability explicitly, and restart Codex."
+  else
+    echo "   Use the platform's native subagent dispatch and the shared lifecycle contract."
+  fi
+  echo "   Run bash scripts/specai-harness-doctor.sh --json to verify the installation."
 elif [[ "$PLATFORM" == "antigravity" ]]; then
-  echo "   Antigravity discovers skills automatically from the workspace plugin."
+  echo "   Antigravity discovers skills and seven native agents from the workspace plugin."
   echo "   Run ./specai install if you haven't yet, then restart Antigravity."
+  echo "   Native dispatch: invoke_subagent; run the harness doctor to verify it."
 elif [[ "$PLATFORM" == "gemini" ]]; then
   echo "   ⚠️  specai no longer ships a Gemini CLI bridge (Gemini CLI as a coding"
   echo "   harness is currently unsupported). Use Antigravity instead."
@@ -367,10 +381,9 @@ for agent in roster:
     print(f"     • {name:<24} → {configured.get(name, agent['defaultModel'])}")
 PY
   echo ""
-  echo "   To add legacy agents (spec-reviewer, code-quality-reviewer, final-reviewer):"
-  echo "   bash scripts/setup-agents.sh"
-  echo ""
-  echo "   Re-run 'bash scripts/setup-agents.sh' if you need to refresh agent definitions."
+  echo "   Native harness contract: scripts/agent-harness-contract.json"
+  echo "   Run 'bash scripts/specai-harness-doctor.sh --json' to verify capabilities."
+  echo "   Re-run 'bash scripts/setup-agents.sh' to refresh the OpenCode projection."
   echo ""
   echo -e "   Config: ${BLUE}$CONFIG_FILE${NC}"
 fi
