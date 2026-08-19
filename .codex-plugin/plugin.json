@@ -21,7 +21,6 @@
     "antigravity",
     "opencode"
   ],
-  "skills": "./skills/",
   "interface": {
     "displayName": "specai",
     "shortDescription": "Planning, TDD, debugging, and delivery workflows for coding agents",

@@ -1,0 +1,4 @@
+---
+description: "Initialize docs/specai/project/ incrementally, verify config, and optionally run a scoped preflight for one unidad funcional acotada."
+---
+Initialize specai configuration without inventorying the whole repository. Ensure ~/.config/specai/config.json exists with default models and language:auto, ensure docs/specai/project/ exists idempotently, and run the scoped preflight for the affected functional unit when one is known: bash scripts/specai-init.sh --scope <path>. Review only that unit's code and offer to create its missing project spec through the documenter. Run bash scripts/setup-agents.sh to verify OpenCode agents. Report current state.

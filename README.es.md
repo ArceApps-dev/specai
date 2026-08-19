@@ -442,7 +442,7 @@ Añade specai al array `plugin` en tu `opencode.json`:
 
 El plugin auto-registra:
 - **7 subagentes** (`@implementer`, `@build-fixer`, `@code-reviewer`, `@verifier`, `@spec-compliance-reviewer`, `@specai-command`, `@specai-documentation`)
-- **12 slash commands** (`/specai-plan`, `/specai-mini`, `/specai-explore`, `/specai-verify`, `/specai-review`, `/specai-iterate`, `/specai-mode`, `/specai-audit`, `/specai-audit-plan`, `/specai-backlog`, `/specai-init`, `/specai-config`)
+- **13 slash commands** (`/specai-plan`, `/specai-mini`, `/specai-explore`, `/specai-verify`, `/specai-review`, `/specai-iterate`, `/specai-mode`, `/specai-audit`, `/specai-audit-plan`, `/specai-backlog`, `/specai-init`, `/specai-finish`, `/specai-config`)
 - **1 herramienta built-in** (`specai-configure-model`)
 - **Las 39 skills** bajo `skills/`
 
@@ -457,7 +457,7 @@ El plugin auto-registra:
 > solo ve el procedimiento que ese paso necesita realmente. Skills más
 > grandes y en menor número obligarían a cada subagente a cargar
 > instrucciones de trabajo que jamás va a hacer, que es exactamente el
-> prompt-rot que tratamos de evitar. Los 12 slash commands se mantienen
+> prompt-rot que tratamos de evitar. Los 13 slash commands se mantienen
 > como superficie fija y memorable; el conjunto de skills puede crecer a
 > medida que la metodología gana distinciones más finas.
 
@@ -534,6 +534,7 @@ Esto re-enlaza skills y re-inyecta agentes en un solo paso.
 | `/specai-audit-plan` | Auditoría full-project (bloat + arquitectura) → triage interactivo → specai-plan. |
 | `/specai-backlog` | Muestra los planes pendientes de `.specai/backlog.json`. Selecciona por número para ejecutar. |
 | `/specai-init` | Inicializa `docs/specai/`, verifica la config, asegura que los agentes estén configurados. |
+| `/specai-finish` | Finaliza una rama de desarrollo aceptada eligiendo merge, PR, conservar o descartar. |
 | `/specai-config` | Muestra o cambia modelos de agentes, idioma y modo de commit interactivamente. |
 
 ### Comandos CLI (`./specai <comando>`)

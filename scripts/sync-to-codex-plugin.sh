@@ -66,7 +66,6 @@ EXCLUDES=(
   "/package.json"
 
   # Directories not shipped by canonical Codex plugins
-  "/commands/"
   "/docs/"
   "/hooks/"
   "/lib/"

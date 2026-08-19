@@ -440,7 +440,7 @@ Add specai to the `plugin` array in your `opencode.json`:
 
 The plugin auto-registers:
 - **7 subagents** (`@implementer`, `@build-fixer`, `@code-reviewer`, `@verifier`, `@spec-compliance-reviewer`, `@specai-command`, `@specai-documentation`)
-- **12 slash commands** (`/specai-plan`, `/specai-mini`, `/specai-explore`, `/specai-verify`, `/specai-review`, `/specai-iterate`, `/specai-mode`, `/specai-audit`, `/specai-audit-plan`, `/specai-backlog`, `/specai-init`, `/specai-config`)
+- **13 slash commands** (`/specai-plan`, `/specai-mini`, `/specai-explore`, `/specai-verify`, `/specai-review`, `/specai-iterate`, `/specai-mode`, `/specai-audit`, `/specai-audit-plan`, `/specai-backlog`, `/specai-init`, `/specai-finish`, `/specai-config`)
 - **1 built-in tool** (`specai-configure-model`)
 - **All 39 skills** under `skills/`
 
@@ -454,7 +454,7 @@ The plugin auto-registers:
 > agent that runs any one step of it sees only the procedure that step
 > actually needs. Fewer, larger skills would force every subagent to
 > carry instructions for work it never does, which is the exact prompt-
-> rot we are trying to avoid. 12 slash commands stay a fixed,
+> rot we are trying to avoid. 13 slash commands stay a fixed,
 > memorable surface; the skill set is allowed to grow as the
 > methodology gains finer distinctions.
 
@@ -531,6 +531,7 @@ This re-links skills and re-injects agents in one step.
 | `/specai-audit-plan` | Full-project audit (bloat + architecture) → interactive triage → specai-plan. |
 | `/specai-backlog` | Show pending plans from `.specai/backlog.json`. Select by number to execute. |
 | `/specai-init` | Initialize `docs/specai/` directories, verify config, ensure agents are set up. |
+| `/specai-finish` | Finish an accepted development branch by choosing merge, PR, keep, or discard. |
 | `/specai-config` | Show or change agent models, language, and commit mode interactively. |
 
 ### CLI Commands (`./specai <command>`)

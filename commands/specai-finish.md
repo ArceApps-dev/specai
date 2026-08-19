@@ -1,0 +1,4 @@
+---
+description: "Prepare and archive a completed feature only after documentation, SPEC_DRIFT, verifier, Gate UA, and explicit user consent pass."
+---
+Finish the current feature through the consented documentary flow. First run `bash scripts/specai-finish.sh preflight <Feature-ID>` and stop on any SPEC_DRIFT or readiness failure. Then run `bash scripts/specai-finish.sh preview <Feature-ID>` and show the planned documentation/backlog/archive operations, including GIT_PENDING. Before mutation, confirm that the documenter has updated the project-spec delta and the six dated feature artifacts. Ask for explicit user permission to archive, then run `bash scripts/specai-finish.sh archive <Feature-ID> --confirm-archive`. The script performs no commit, push, merge, checkout, reset, or branch operation. Present any GIT_PENDING actions separately and request explicit user permission before Git integration.
