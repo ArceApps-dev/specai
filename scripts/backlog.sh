@@ -25,7 +25,7 @@ from datetime import datetime
 from pathlib import Path
 
 backlog_path = Path(sys.argv[1])
-repo_root = Path(sys.argv[2])
+repo_root = Path(sys.argv[2]).resolve()
 mode = sys.argv[3]
 feature_pattern = re.compile(r"^(\d{8})-([a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)$")
 required_suffixes = ("prd", "spec", "designs", "plan", "tasks", "verify")
@@ -41,6 +41,55 @@ status_map = {
 
 def fail(message):
     raise SystemExit(f"backlog sync: {message}")
+
+
+def authorized(path):
+    try:
+        path.resolve(strict=False).relative_to(repo_root)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def path_exists(path):
+    return path.exists() or path.is_symlink()
+
+
+def validate_feature_artifacts(feature_path, feature_id, legacy):
+    if not authorized(feature_path):
+        fail(f"feature directory resolves outside repo for {feature_id}")
+    if not feature_path.is_dir():
+        fail(f"feature directory is not a directory for {feature_id}")
+    try:
+        children = list(feature_path.iterdir())
+    except OSError as exc:
+        fail(f"cannot inspect feature directory for {feature_id}: {exc}")
+
+    for path in children:
+        if not authorized(path):
+            fail(f"artifact resolves outside repo for {feature_id}: {path.name}")
+
+    if legacy:
+        if not any(path.is_file() for path in children):
+            fail(f"legacy feature directory is empty: {feature_id}")
+        return
+
+    expected = {f"{feature_id}-{suffix}.md" for suffix in required_suffixes}
+    actual = {path.name for path in children}
+    missing = sorted(expected - actual)
+    extra = sorted(actual - expected)
+    if missing:
+        fail(f"missing artifacts for {feature_id}: {', '.join(missing)}")
+    if extra:
+        fail(f"partial or invalid artifacts for {feature_id}: {', '.join(extra)}")
+    for path in children:
+        if not authorized(path):
+            fail(f"artifact resolves outside repo for {feature_id}: {path.name}")
+        if not path.is_file():
+            fail(f"artifact is not a regular file for {feature_id}: {path.name}")
+
+if not authorized(backlog_path):
+    fail(f"backlog path resolves outside repo: {backlog_path}")
 
 try:
     entries = json.loads(backlog_path.read_text(encoding="utf-8"))
@@ -80,11 +129,17 @@ for entry in entries:
 
     active = repo_root / "docs" / "specai" / feature_id
     archive = repo_root / "docs" / "specai" / "feature" / feature_id
-    if active.exists() and archive.exists():
+    active_exists = path_exists(active)
+    archive_exists = path_exists(archive)
+    if active_exists and not authorized(active):
+        fail(f"active destination resolves outside repo for {feature_id}")
+    if archive_exists and not authorized(archive):
+        fail(f"archive destination resolves outside repo for {feature_id}")
+    if active_exists and archive_exists:
         fail(f"active and archive directories both exist for {feature_id}")
-    if active.exists() and not active.is_dir():
+    if active_exists and not active.is_dir():
         fail(f"active destination is not a directory for {feature_id}")
-    if archive.exists() and not archive.is_dir():
+    if archive_exists and not archive.is_dir():
         fail(f"archive destination is not a directory for {feature_id}")
     if active.is_dir():
         feature_dir = Path("docs/specai") / feature_id
@@ -97,13 +152,7 @@ for entry in entries:
     else:
         fail(f"feature directory not found for {feature_id}")
 
-    if not legacy:
-        missing = [f"{feature_id}-{suffix}.md" for suffix in required_suffixes
-                   if not (feature_path / f"{feature_id}-{suffix}.md").is_file()]
-        if missing:
-            fail(f"missing artifacts for {feature_id}: {', '.join(missing)}")
-    elif not any(path.is_file() for path in feature_path.iterdir()):
-        fail(f"legacy feature directory is empty: {feature_id}")
+    validate_feature_artifacts(feature_path, feature_id, legacy)
 
     status = status_map.get(str(entry.get("status", "backlog")))
     if status is None:
@@ -156,11 +205,15 @@ for parent in (repo_root / "docs" / "specai", repo_root / "docs" / "specai" / "f
     if not parent.is_dir():
         continue
     for child in parent.iterdir():
-        if child.is_dir() and feature_pattern.fullmatch(child.name) and all(
-            (child / f"{child.name}-{suffix}.md").is_file()
-            for suffix in required_suffixes
-        ):
-            discovered.add(child.name)
+        if not feature_pattern.fullmatch(child.name):
+            continue
+        if not authorized(child):
+            fail(f"feature directory resolves outside repo for {child.name}")
+        if not child.is_dir():
+            fail(f"feature directory is not a directory for {child.name}")
+        if child.name not in seen:
+            fail(f"unindexed feature directory: {child.name}")
+        discovered.add(child.name)
 unindexed = sorted(discovered - seen)
 if unindexed:
     fail(f"unindexed feature directories: {', '.join(unindexed)}")

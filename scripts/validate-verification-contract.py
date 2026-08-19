@@ -11,8 +11,8 @@ from pathlib import Path
 
 CRITERION_HEADER = re.compile(r"^### (C\d+)\b.*$", re.MULTILINE)
 TASK_HEADER = re.compile(r"^#{2,3} (?:Task\s+|T)?\d+\b.*$", re.MULTILINE)
-TASK_CRITERIA = re.compile(r"^\s*\*\*Criteria:\*\*\s*(.+)$", re.MULTILINE)
 FIELD = re.compile(r"^\s*-?\s*\*\*(Goal ID|Goal|Goal completion invariant|Status|Requirement|Criterion type|Invariant|Verification seam|Given|When|Then|Tasks|Verification command|Expected|Evidence|Verifier verdict|Last verified HEAD|Open failures|Corrective loop):\*\*\s*(.+)$", re.MULTILINE)
+DIRECT_TASK_FIELD = re.compile(r"^[ \t]*\*\*(Criteria):\*\*[ \t]*(.*)$", re.MULTILINE)
 
 CRITERION_FIELDS = (
     "Requirement",
@@ -38,13 +38,32 @@ def error(path: Path, message: str) -> str:
 
 
 def field_values(text: str) -> dict[str, str]:
-    return {name: value.strip() for name, value in FIELD.findall(text)}
+    return {name: values[-1].strip() for name, values in field_occurrences(text).items()}
+
+
+def field_occurrences(text: str) -> dict[str, list[str]]:
+    values: dict[str, list[str]] = {}
+    for name, value in FIELD.findall(text):
+        values.setdefault(name, []).append(value)
+    return values
+
+
+def top_level_section(text: str, title: str) -> str:
+    header = re.compile(rf"^## {re.escape(title)}\s*$", re.MULTILINE)
+    matches = list(header.finditer(text))
+    if len(matches) != 1:
+        return ""
+    start = matches[0].end()
+    next_section = re.search(r"^## (?!#).*$", text[start:], re.MULTILINE)
+    end = start + next_section.start() if next_section else len(text)
+    return text[start:end]
 
 
 def criterion_blocks(text: str) -> list[tuple[str, str]]:
-    headers = list(CRITERION_HEADER.finditer(text))
+    acceptance = top_level_section(text, "Acceptance Criteria")
+    headers = list(CRITERION_HEADER.finditer(acceptance))
     return [
-        (header.group(1), text[header.end() : headers[index + 1].start() if index + 1 < len(headers) else len(text)])
+        (header.group(1), acceptance[header.end() : headers[index + 1].start() if index + 1 < len(headers) else len(acceptance)])
         for index, header in enumerate(headers)
     ]
 
@@ -61,10 +80,12 @@ def validate_tasks(path: Path) -> tuple[list[str], set[str], dict[str, set[str]]
         next_header = re.search(r"^#{2,3} (?:Task\s+|T)?\d+\b.*$", text[header.end() :], re.MULTILINE)
         block_end = header.end() + next_header.start() if next_header else len(text)
         block = text[header.end() : block_end]
-        match = TASK_CRITERIA.search(block)
-        criteria = set(re.findall(r"\bC\d+\b", match.group(1))) if match else set()
+        first_heading = re.search(r"^#{1,6} .*$", block, re.MULTILINE)
+        metadata = block[: first_heading.start()] if first_heading else block
+        matches = list(DIRECT_TASK_FIELD.finditer(metadata))
+        criteria = set(re.findall(r"\bC\d+\b", matches[0].group(2))) if len(matches) == 1 else set()
         if not criteria:
-            errors.append(error(path, f"{task_id}: missing Criteria mapping"))
+            errors.append(error(path, f"{task_id}: missing exact Criteria field mapping"))
         task_criteria[task_id] = criteria
     if not task_ids:
         errors.append(error(path, "no numbered task entries found"))
@@ -74,10 +95,9 @@ def validate_tasks(path: Path) -> tuple[list[str], set[str], dict[str, set[str]]
 def validate(path: Path, tasks_path: Path | None) -> list[str]:
     text = path.read_text(encoding="utf-8")
     errors: list[str] = []
-    acceptance_offset = text.find("## Acceptance Criteria")
-    state_offset = text.find("## Verification State")
-    fields = field_values(text[:acceptance_offset] if acceptance_offset >= 0 else text)
-    state_fields = field_values(text[state_offset:] if state_offset >= 0 else "")
+    acceptance_match = re.search(r"^## Acceptance Criteria\s*$", text, re.MULTILINE)
+    fields = field_values(text[:acceptance_match.start()] if acceptance_match else text)
+    state_fields = field_values(top_level_section(text, "Verification State"))
 
     for required in ("Goal ID", "Goal", "Goal completion invariant"):
         if required not in fields:
@@ -99,10 +119,13 @@ def validate(path: Path, tasks_path: Path | None) -> list[str]:
     criterion_tasks: dict[str, set[str]] = {}
     criterion_statuses: dict[str, str] = {}
     for criterion_id, block in blocks:
+        if criterion_id in criterion_ids:
+            errors.append(error(path, f"{criterion_id}: duplicate criterion block"))
         criterion_ids.add(criterion_id)
-        values = field_values(block)
+        occurrences = field_occurrences(block)
+        values = {name: entries[-1].strip() for name, entries in occurrences.items()}
         for required in CRITERION_FIELDS:
-            if required not in values:
+            if required not in values or len(occurrences.get(required, [])) != 1:
                 errors.append(error(path, f"{criterion_id}: missing **{required}:**"))
 
         criterion_type = values.get("Criterion type", "").strip("`").upper()
@@ -123,11 +146,13 @@ def validate(path: Path, tasks_path: Path | None) -> list[str]:
             errors.append(error(path, f"{criterion_id}: Status must be PENDING, PASS, FAIL, or UNVERIFIED"))
         criterion_statuses[criterion_id] = status
 
-    if "## Coverage Matrix" not in text:
+    coverage = top_level_section(text, "Coverage Matrix")
+    if not coverage:
         errors.append(error(path, "missing ## Coverage Matrix"))
     else:
         for criterion_id in criterion_ids:
-            if criterion_id not in text[text.find("## Coverage Matrix") :]:
+            row = re.compile(rf"^\s*\|\s*`?{re.escape(criterion_id)}`?\s*\|", re.MULTILINE)
+            if not row.search(coverage):
                 errors.append(error(path, f"Coverage Matrix does not include {criterion_id}"))
 
     for required in ("Verifier verdict", "Last verified HEAD", "Open failures", "Corrective loop"):

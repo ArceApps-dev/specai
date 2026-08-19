@@ -5,6 +5,30 @@
     "pollIntervalSeconds": 15,
     "heartbeatIntervalSeconds": 30
   },
+  "forbid_inline": true,
+  "observableStates": [
+    "TASK_BLOCKED",
+    "POLLING",
+    "DEADLINE_EXCEEDED",
+    "PARTIAL"
+  ],
+  "lifecycle": {
+    "timed_out": {
+      "state": "POLLING",
+      "terminal": false,
+      "retain_handle": true
+    },
+    "deadline": {
+      "state": "DEADLINE_EXCEEDED",
+      "terminal": true,
+      "at_seconds": 900
+    },
+    "missing_capability": {
+      "state": "TASK_BLOCKED",
+      "handoff": false,
+      "inline_fallback": false
+    }
+  },
   "requiredCapabilities": [
     "fresh_session",
     "isolated_context",

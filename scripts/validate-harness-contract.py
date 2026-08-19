@@ -20,6 +20,29 @@ EXPECTED_ROLES = {
 }
 EXPECTED_HARNESSES = {"opencode", "codex", "antigravity"}
 REQUIRED_CAPABILITIES = {"fresh_session", "isolated_context", "terminal_state"}
+OBSERVABLE_STATES = [
+    "TASK_BLOCKED",
+    "POLLING",
+    "DEADLINE_EXCEEDED",
+    "PARTIAL",
+]
+EXPECTED_LIFECYCLE = {
+    "timed_out": {
+        "state": "POLLING",
+        "terminal": False,
+        "retain_handle": True,
+    },
+    "deadline": {
+        "state": "DEADLINE_EXCEEDED",
+        "terminal": True,
+        "at_seconds": 900,
+    },
+    "missing_capability": {
+        "state": "TASK_BLOCKED",
+        "handoff": False,
+        "inline_fallback": False,
+    },
+}
 
 
 def load_json(path: Path) -> object:
@@ -43,6 +66,13 @@ def validate_contract(contract: dict) -> None:
     }
     if policy != expected_policy:
         raise ValueError(f"policy must equal {expected_policy}")
+
+    if contract.get("forbid_inline") is not True:
+        raise ValueError("forbid_inline must be true")
+    if contract.get("observableStates") != OBSERVABLE_STATES:
+        raise ValueError(f"observableStates must equal {OBSERVABLE_STATES}")
+    if contract.get("lifecycle") != EXPECTED_LIFECYCLE:
+        raise ValueError(f"lifecycle must equal {EXPECTED_LIFECYCLE}")
 
     capabilities = set(contract.get("requiredCapabilities", []))
     if capabilities != REQUIRED_CAPABILITIES:
@@ -106,7 +136,7 @@ def main(argv: list[str]) -> int:
         print(f"harness contract: FAIL: {exc}", file=sys.stderr)
         return 1
 
-    print("harness contract: PASS")
+    print("HARNESS_CONTRACT: PASS")
     return 0
 
 

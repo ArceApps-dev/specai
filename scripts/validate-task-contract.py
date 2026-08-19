@@ -10,9 +10,9 @@ from pathlib import Path
 
 TASK_HEADER = re.compile(r"^#{2,3} (?:Task\s+|T)?\d+\b.*$", re.MULTILINE)
 SECTION_HEADER = re.compile(r"^#{1,6} .*$", re.MULTILINE)
-FIELD = re.compile(r"^\s*-?\s*\*\*(Target|Location|Current|Change|Assertion):\*\*\s*(.+)$", re.MULTILINE)
+DIRECT_FIELD = re.compile(r"^[ \t]*\*\*([A-Za-z][A-Za-z ]*):\*\*[ \t]*(.*)$", re.MULTILINE)
+FIELD = re.compile(r"^[ \t]*-[ \t]*\*\*(Target|Location|Current|Change|Assertion):\*\*[ \t]*(.+)$", re.MULTILINE)
 FILE_ENTRY = re.compile(r"^\s*-\s+(?:Create|Modify|Delete|Test):\s+`([^`]+)`\s*$", re.MULTILINE)
-CRITERIA = re.compile(r"^\s*\*\*Criteria:\*\*\s*(.+)$", re.MULTILINE)
 
 
 def fail(path: Path, task_number: int, message: str) -> str:
@@ -20,16 +20,20 @@ def fail(path: Path, task_number: int, message: str) -> str:
 
 
 def section(block: str, title: str) -> str:
-    marker = f"**{title}:**"
-    start = block.find(marker)
-    if start < 0:
+    matches = [match for match in DIRECT_FIELD.finditer(block) if match.group(1) == title]
+    if len(matches) != 1:
         return ""
-    start = block.find("\n", start)
-    if start < 0:
-        return ""
-    end_match = SECTION_HEADER.search(block, start + 1)
-    end = end_match.start() if end_match else len(block)
-    return block[start + 1 : end]
+    start = matches[0].end()
+    boundaries = [match.start() for match in DIRECT_FIELD.finditer(block, start)]
+    heading = SECTION_HEADER.search(block, start)
+    if heading:
+        boundaries.append(heading.start())
+    end = min(boundaries, default=len(block))
+    return block[start:end]
+
+
+def direct_field_matches(block: str, title: str) -> list[re.Match[str]]:
+    return [match for match in DIRECT_FIELD.finditer(block) if match.group(1) == title]
 
 
 def validate(path: Path) -> list[str]:
@@ -47,9 +51,11 @@ def validate(path: Path) -> list[str]:
         if not files:
             errors.append(fail(path, index, "Files must list exact backticked paths"))
 
-        criteria_match = CRITERIA.search(block)
-        if not criteria_match or not re.findall(r"\bC\d+\b", criteria_match.group(1)):
-            errors.append(fail(path, index, "Criteria must map the task to one or more verification IDs such as C1"))
+        first_heading = SECTION_HEADER.search(block)
+        metadata = block[: first_heading.start()] if first_heading else block
+        criteria_matches = [match for match in direct_field_matches(metadata, "Criteria")]
+        if len(criteria_matches) != 1 or not re.findall(r"\bC\d+\b", criteria_matches[0].group(2) if criteria_matches else ""):
+            errors.append(fail(path, index, "Criteria must be an exact field in the task block and map to one or more verification IDs such as C1"))
 
         contract = section(block, "Implementation Contract")
         if not contract:
@@ -62,9 +68,10 @@ def validate(path: Path) -> list[str]:
             )
             continue
 
-        fields = {name: value.strip() for name, value in FIELD.findall(contract)}
+        field_matches = FIELD.findall(contract)
+        fields = {name: value.strip() for name, value in field_matches}
         for name in ("Target", "Location", "Current", "Change", "Assertion"):
-            if name not in fields:
+            if name not in fields or sum(field_name == name for field_name, _ in field_matches) != 1:
                 errors.append(fail(path, index, f"Implementation Contract is missing {name}"))
 
         for name in ("Target", "Location"):
@@ -86,9 +93,9 @@ def validate(path: Path) -> list[str]:
             errors.append(fail(path, index, "Assertion must name the observable assertion or output in backticks"))
 
         steps = section(block, "Steps")
-        if not re.search(r"^\s*(?:Run|Ejecutar):\s*.+", steps, re.MULTILINE):
+        if not re.search(r"^\s*-?\s*(?:Run|Ejecutar):\s*.+", steps, re.MULTILINE):
             errors.append(fail(path, index, "Steps must include an exact Run command"))
-        if not re.search(r"^\s*Expected:\s*.+", steps, re.MULTILINE):
+        if not re.search(r"^\s*-?\s*Expected:\s*.+", steps, re.MULTILINE):
             errors.append(fail(path, index, "Steps must include a concrete Expected result"))
 
     return errors
