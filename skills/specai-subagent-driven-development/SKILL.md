@@ -28,11 +28,12 @@ loop, branch timing, and Gate UA remain required.
 | **Gate S2** | Read plan once, extract all tasks, create TodoWrite | Dispatching implementers without understanding full plan structure |
 | **Gate S2.5** | Parse task metadata (Complexity, Risk). Halt and request interactive approval if Complexity >= 7 or Risk is High. | Skipping risk validation, or executing high-complexity/high-risk tasks without interactive approval. |
 | **Gate S3** | Dispatch implementer with ONLY its task and its persisted `Research & Context` | Providing full plan, other tasks, or execution log to implementer; omitting research context. |
-| **Gate S4** | Implementer reports DONE → verify build passes | Moving to next task while build is broken |
-| **Gate S5** | Build passes → dispatch code-reviewer (MANDATORY) | Skipping code review, committing unreviewed code |
+| **Gate S4** | Implementer reports DONE → verify modular test passes (acotado al componente) | Moving to next task while test is broken, or running full repo build per task |
+| **Gate S5** | Build/test passes → dispatch code-reviewer (MANDATORY) | Skipping code review, committing unreviewed code |
 | **Gate S5.5** | Code reviewer says quality CLEAN and `Compliance verdict: PASS` → serialized commit → serialized documenter handoff | Skipping task compliance, commit, or documenter |
 | **Gate S5.8** | Code reviewer finds CRITICAL/IMPORTANT → fix → re-verify build → re-review | Proceeding with unfixed issues, or skipping re-review after fix |
-| **Gate S6** | All tasks done → full test suite → spec-compliance-reviewer → verifier | Skipping spec compliance review before verifier, declaring done before verifier says PASS |
+| **Gate S6** | All tasks done → full test suite (suite global de integración ejecutada una única vez) → spec-compliance-reviewer → verifier | Skipping global test suite, skipping spec compliance review before verifier, declaring done before verifier says PASS |
+| **Gate S7: Anti-Bypass** | Strictly prohibited from switching to inline execution autonomously | Silently bypassing subagents or executing tasks inline without explicit user approval |
 
 **If any step within a task fails, stop that task and resolve it. Other independent tasks in the same wave may continue only when their workspaces, files, and shared resources remain disjoint.**
 
@@ -98,9 +99,10 @@ the result is `FAIL`, `PARTIAL`, or `UNVERIFIED`, the controller MUST:
    task, then re-run the affected criteria and the regression suite.
 5. Invoke the verifier again against the new `HEAD`.
 
-Gate UA is reachable only when the verifier reports `PASS` and the complete
-`GOAL_COMPLETE` invariant is true. A green task checkbox alone never bypasses
-this loop.
+Gate UA solo es alcanzable cuando el verifier informa `PASS`, la invariante
+`GOAL_COMPLETE` completa es cierta y el controlador ha presentado el **HTD de
+aceptación** breve requerido abajo. Una casilla de tarea en verde nunca evita
+este ciclo.
 
 ## OpenCode Agent Configuration
 
@@ -170,7 +172,7 @@ graph TB
   N --> O[spec-compliance-reviewer]
   O --> P[verifier]
   P --> Q{PASS?}
-  Q -- "yes" --> R[Gate UA: User Acceptance]
+  Q -- "yes" --> R[Gate UA: presentar HTD de aceptación y después aceptación]
   Q -- "no" --> S[Generate corrective tasks]
   S --> E
   R -- "explicit user acceptance" --> T[finishing-a-development-branch]
@@ -183,7 +185,14 @@ The five non-obvious rules this diagram enforces:
 3. After every successful task: commit + documenter handoff in that order, no shortcuts; these operations are serialized.
 4. Build failure → build-fixer, NOT implementer. Build-fixer has minimal-diff as its only job.
 5. Code-reviewer is read-only. Fixes come from the orchestrator (atomic) or by re-dispatching the implementer.
-6. **Gate UA** blocks `finishing-a-development-branch`. Without user acceptance, no merge.
+6. **Gate UA** bloquea `finishing-a-development-branch`. Después de `PASS` del
+   verifier, presentar el HTD de aceptación breve con `Artefacto / arranque`,
+   escenarios priorizados `Ruta`/`Acción`/`Esperado` y `No hace falta probar`;
+   registrar `Gate UA HTD: presentado` y `HTD presentado` con timestamp en el
+   `Execution Log`, y después esperar a que la persona usuaria lo pruebe y
+   acepte explícitamente. No se puede pedir `accept` antes de presentar el HTD;
+   sin esa secuencia, o con una respuesta ausente, negativa o ambigua, no se
+   permite el merge.
 
 ```
 
@@ -322,7 +331,7 @@ This skill's branch + commit rules are *the same* as the global rules in `AGENTS
 
 | Verifier result | Next gate |
 |-----------------|-----------|
-| **PASS** | **Gate UA only; wait for explicit user acceptance before finishing** |
+| **PASS** | **Present and record the HTD de aceptación, then wait for explicit user acceptance at Gate UA before finishing** |
 | **FAIL** | Generate corrective tasks and re-enter the per-task loop |
 | **Any other result** | **Not a valid terminal verdict: STOP and resolve or re-enter the corrective-task loop; do not enter Gate UA or finishing** |
 
@@ -389,7 +398,8 @@ Build-fixer: "FIXED. Verification: npm run build"
 [delegate("verify <spec>-verify.md", agent="verifier")]   # spec-compliance-reviewer first, then verifier
 
 # User-Acceptance Gate (added 2026-07-08)
-[wait for user to test implementation and say "accepted"]
+[presentar el HTD de aceptación inmediatamente después de verifier PASS]
+[esperar a que la persona usuaria pruebe el HTD y responda "accepted"]
 [Invoke specai-finishing-a-development-branch — only after explicit user acceptance]
 [Skill presents: merge / PR / keep / discard]
 ```
@@ -451,6 +461,8 @@ Build-fixer: "FIXED. Verification: npm run build"
 - Skip spec-compliance-reviewer before the verifier
 - Let the code-reviewer apply fixes (it's READ-ONLY, reports only)
 - Proceed after CRITICAL/IMPORTANT review findings without fixing and re-reviewing
+- Switch to inline execution autonomously without explicit user authorization via interactive prompt (Bypass inline prohibido)
+- Run full repository builds (e.g. `./gradlew build`, `./gradlew check`) on per-task verification steps (must use modular/scoped test commands)
 
 **If subagent asks questions:**
 - Answer clearly and completely

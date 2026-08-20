@@ -157,10 +157,11 @@ From 24 failure memories:
 Verifier PASS ≠ done. The plan is NOT complete until the user has tested the implementation and explicitly accepted it.
 
 **Rules:**
-1. After verifier PASS, present the implementation to the user: "Implementation is complete per `_verify.md`. Please test. Reply `accept` to proceed, or describe issues."
-2. Do NOT invoke `finishing-a-development-branch` before the user replies with `accept` (or equivalent).
-3. Record the user's acceptance timestamp and text in `_plan.md` Execution Log.
-4. If the user replies with issues / "iterate" / "fix X", enter `specai-iteration` mode. Do NOT proceed to merge.
+1. Inmediatamente después del `PASS` del verifier y antes de pedir aceptación, presentar un **HTD de aceptación** breve, basado en hechos verificados para el `HEAD` actual. DEBE incluir `Artefacto / arranque` con el comando exacto de instalación, apertura o ejecución, o el motivo por el que no aplica el arranque manual; una lista breve y priorizada de escenarios visibles o conductuales modificados, cada uno con `Ruta`, `Acción` y `Esperado`; y `No hace falta probar` únicamente para elementos explícitamente fuera de alcance o ya cubiertos.
+2. No inventar rutas ni comportamiento esperado en el HTD de aceptación. Si no está disponible el comando de arranque o un hecho esperado, declarar bloqueada la verificación manual o pedir el dato que falta.
+3. Terminar la entrega con una petición explícita: probar este HTD de aceptación y responder `accept`/`acepto`, o informar de un problema. Antes de esperar la respuesta, registrar `Gate UA HTD: presentado` y `HTD presentado` con su timestamp en el `Execution Log` de `_plan.md`; después registrar el timestamp de aceptación y el texto exacto.
+4. **No se puede pedir `accept` antes de presentar el HTD de aceptación.** Una aceptación anterior no es válida. NO invocar `finishing-a-development-branch` antes de que la persona usuaria pruebe el HTD y acepte explícitamente.
+5. Las respuestas ausentes o ambiguas requieren aclaración; las respuestas negativas o los problemas comunicados entran en `specai-iteration`. NO continuar hacia merge.
 
 **Acceptance phrases (case-insensitive):** "accept", "accepted", "acepto", "OK", "looks good", "ship it", "merge it", "proceed"
 

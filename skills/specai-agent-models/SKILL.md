@@ -87,7 +87,7 @@ The orchestrator selects the tier before dispatching each task based on: task co
 The `flowMode` field controls which workflow the orchestrator uses:
 
 - `"auto"` (default): agent determines mode based on task scope
-- `"full"`: always use the complete SpecAI flow (grounding → grill-me → write-prd → approval → six documents → choose implement/backlog → branch only if implement → per-task cycle → spec-compliance-reviewer → verifier → Gate UA → finishing)
+- `"full"`: always use the complete SpecAI flow (grounding → grill-me → write-prd → approval → six documents → choose implement/backlog → branch only if implement → per-task cycle → spec-compliance-reviewer → verifier → HTD de aceptación → Gate UA → finishing)
 - `"mini"`: use Mini mode for all tasks (grounding → grill-me → compact six feature artifacts → implementation/backlog choice → branch only if implementation → implement → verify)
 
 Both modes use the same six feature artifacts: `prd.md`, `spec.md`,

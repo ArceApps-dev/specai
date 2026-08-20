@@ -107,7 +107,10 @@ This structure informs the task decomposition. Each task should produce self-con
 ## Bite-Sized Task Granularity & Horizontal Layers
 
 **Cada tarea debe ser ultra-granular (3 a 5 minutos) y organizarse de manera horizontal (ej. Base de Datos, API, UI de manera separada):**
-- Cada paso de código debe especificar explícitamente su **costura de verificación (seam)**: la interfaz pública, endpoint, o método exacto donde se observará y probará el comportamiento, junto con el comando de prueba correspondiente.
+- **Principio de Unidad de Comportamiento Testeable:** Una tarea atómica en `*-tasks.md` DEBE introducir o modificar una aserción de comportamiento verificable mediante un test unitario/integración propio o comando con salida observable.
+- **Prohibición de micro-tareas cosméticas:** Modificaciones puramente declarativas o menores (textos de UI, hints, strings, constantes de estilo) pertenecientes a una funcionalidad NO DEBEN constituir tareas separadas; se integran como pasos dentro de la tarea del componente funcional que los consume.
+- **Prohibición de tareas de documentación en `*-tasks.md`:** La lista de tareas `*-tasks.md` es exclusiva para código fuente y tests. Queda prohibido crear tareas dedicadas exclusivamente a redactar o actualizar documentación; la documentación viva y deltas de spec son eventos automáticos de ciclo de vida gestionados por `specai-documentation` tras cada commit.
+- **Costura de verificación acotada (Local Seam):** Cada paso de código debe especificar explícitamente su comando de prueba correspondiente acotado exclusivamente al módulo o test unitario específico del archivo modificado (ej. `./gradlew :feature:modulo:testDebugUnitTest --tests com.example.FeatureTest` o `pytest tests/unit/test_file.py`). Queda PROHIBIDO el uso de comandos raíz globales (ej. `./gradlew build`, `./gradlew check`) en la verificación de pasos individuales de tareas.
 - El plan debe guiar la ejecución de forma incremental paso a paso:
   - "Escribir el test para el componente/endpoint X" - paso
   - "Verificar que el test falla" - paso

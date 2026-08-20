@@ -279,7 +279,7 @@ After triage, hand off to `/specai-plan` (a registered slash command, not a skil
 2. Run socratic + grill-me + write-prd to clarify scope
 3. Create detailed implementation plan
 4. Execute task by task with code review
-5. Stop at Gate UA for the user's explicit accept
+5. Present the HTD de aceptación, then stop at Gate UA for the user's explicit accept
 
 ## Red Flags
 

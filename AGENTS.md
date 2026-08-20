@@ -13,7 +13,9 @@ Everything else — explore, review, iterate, audit — is supporting cast. The 
 
 ## ABSOLUTE IRON RULE (INQUEBRANTABLE)
 
-**The specai workflow is RÍGIDO. EVERY step in EVERY skill MUST be followed escrupulosamente. NO skipping steps. NO reordering. NO "this is simple enough to shortcut." NO "just this once." The flow is: socratic definition → grill-me → write-prd → approval → six docs → choose implement/backlog → branch only if implement → atomic implementation with per-task cycle (implement → build → code-review → commit → document → checkpoint) → spec-compliance-review → verifier → Gate UA (user acceptance) → finishing → [iteration loop]. Each phase has GATES that MUST be cleared before proceeding. If a gate is not satisfied, STOP. DO NOT proceed.**
+**The specai workflow is RÍGIDO. EVERY step in EVERY skill MUST be followed escrupulosamente. NO skipping steps. NO reordering. NO "this is simple enough to shortcut." NO "just this once." The flow is: socratic definition → grill-me → write-prd → approval → six docs → choose implement/backlog → branch only if implement → atomic implementation with per-task cycle (implement → build → code-review → commit → document → checkpoint) → spec-compliance-review → verifier → HTD de aceptación → Gate UA (user acceptance) → finishing → [iteration loop]. Each phase has GATES that MUST be cleared before proceeding. If a gate is not satisfied, STOP. DO NOT proceed.**
+
+**Orchestrator Anti-Bypass (INQUEBRANTABLE): The orchestrator is STRICTLY PROHIBITED from switching to inline execution autonomously without explicit interactive approval from the user (bypass inline prohibido). Subagents with clean context (`fork_context: false`) are mandatory for all atomic tasks. If friction or low-risk tasks suggest inline degradation, the orchestrator MUST pause and ask the user for explicit authorization before transitioning.**
 
 **This rule applies to ALL agents, ALL skills, ALL subagents, ALWAYS. No exceptions, no rationalizations, no shortcuts.**
 
@@ -109,10 +111,32 @@ This is the single most important gate in the flow. Reasoning:
 
 **Rules:**
 
-1. The flow stops at the verifier's PASS and presents the implementation to the user with: "Implementation is complete per `_verify.md`. Please test the implementation. Reply with `accept` to proceed, or describe issues to enter iteration."
-2. **`finishing-a-development-branch` MUST NOT be invoked before the user replies with `accept`** (or equivalent — see "Acceptance phrases" below).
-3. The user's acceptance timestamp and any text reply are recorded in the `_plan.md` Execution Log.
-4. If the user replies with anything other than `accept` (issues, "iterate", "fix X"), enter `specai-iteration` mode. Do NOT proceed to merge.
+1. Inmediatamente después del `PASS` del verifier y antes de pedir aceptación, el controlador DEBE presentar un **HTD de aceptación** breve, basado únicamente en hechos verificados para el `HEAD` actual. La entrega DEBE contener:
+   - `Artefacto / arranque`: el comando o estado exacto de instalación, apertura o ejecución; si el arranque manual no aplica, explicar por qué. Si falta el comando o el estado, declarar bloqueada la verificación manual o pedir el dato que falta. Nunca inventar rutas ni comportamiento esperado.
+   - Una lista breve y priorizada de escenarios visibles o conductuales modificados. Cada escenario DEBE contener `Ruta`, `Acción` y `Esperado`.
+   - `No hace falta probar`: únicamente elementos explícitamente fuera de alcance o ya cubiertos por la verificación registrada.
+   - Una petición final explícita para probar este HTD de aceptación y responder `accept`/`acepto` o informar de un problema.
+   La forma mínima de presentación es:
+
+   ```text
+   **HTD de aceptación**
+   **Artefacto / arranque:** <ruta, comando exacto verificado o motivo por el que no aplica>
+
+   **Qué vas a ver (y cómo probarlo)**
+   1. **[P0/P1/P2] <comportamiento modificado>**
+      - **Ruta:** <pantalla, comando, URL o entrypoint>
+      - **Acción:** <acción concreta de la persona usuaria>
+      - **Esperado:** <resultado observable>
+
+   **No hace falta probar:** <elementos fuera de alcance/ya cubiertos, o `ninguno`>
+
+   Prueba el HTD y responde `accept`/`acepto`, o describe cualquier problema.
+   ```
+
+   El controlador DEBE sustituir todos los marcadores por hechos verificados antes de enviar la entrega.
+2. El controlador DEBE registrar `Gate UA HTD: presentado` y `HTD presentado` con su timestamp en el `Execution Log` de `_plan.md`, y después registrar el timestamp de aceptación y el texto exacto de la respuesta. **No se puede pedir `accept` antes de presentar el HTD de aceptación.** Una aceptación recibida antes de esa presentación no es válida.
+3. **`finishing-a-development-branch` NO DEBE invocarse antes de que la persona usuaria pruebe el HTD presentado y responda explícitamente `accept`** (o equivalente; véanse las frases de aceptación).
+4. Las respuestas ausentes, negativas o ambiguas no superan el gate: esperar o pedir aclaración, o entrar en `specai-iteration` si se informa de un problema. NO continuar hacia merge.
 
 **Acceptance phrases (case-insensitive):**
 - "accept", "accepted", "acepto", "aceptado", "OK", "ok", "looks good", "ship it", "merge it", "proceed", "proceed to finish"
@@ -253,7 +277,7 @@ specai supports two modes to scale ceremony to task complexity:
 
 | Mode | Steps | When to use |
 |------|-------|-------------|
-| **Full (`/specai-plan`)** | socratic → grill-me → write-prd → approval → six docs → choose implement/backlog → branch only if implement → per-task cycle (implement → build → code-review → commit → document → checkpoint) → spec-compliance-review → verifier → Gate UA → finishing | New features, large refactors, complex work |
+| **Full (`/specai-plan`)** | socratic → grill-me → write-prd → approval → six docs → choose implement/backlog → branch only if implement → per-task cycle (implement → build → code-review → commit → document → checkpoint) → spec-compliance-review → verifier → HTD de aceptación → Gate UA → finishing | New features, large refactors, complex work |
 | **Mini (`/specai-mini`)** | socratic → plan → implement → verify | Small features, bug fixes, isolated changes |
 
 **Mini uses the same six documents as Full mode** in compact form: `*-prd.md`,

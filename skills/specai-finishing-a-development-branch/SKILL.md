@@ -19,7 +19,7 @@ Guide completion of development work by presenting clear options and handling ch
 
 ## Absolute Gates (INQUEBRANTABLE)
 
-**NEVER proceed to options without passing verification AND user acceptance first.**
+**NEVER proceed to options without verifier `PASS`, a presented HTD de aceptación, and explicit user acceptance first.**
 
 ## SpecAI documental finish
 
@@ -30,7 +30,7 @@ bash scripts/specai-finish.sh preflight <Feature-ID>
 bash scripts/specai-finish.sh preview <Feature-ID>
 ```
 
-El preflight exige seis artefactos fechados, ausencia de `SPEC_DRIFT`, delta de spec global aplicado, verifier PASS, Gate UA aceptado, tareas completadas y estado de backlog `ready_to_finish`. Si falla, se detiene y se resuelve la discrepancia con el documentador.
+El preflight exige seis artefactos fechados, ausencia de `SPEC_DRIFT`, delta de spec global aplicado, verifier PASS, HTD de aceptación presentado, Gate UA aceptado, tareas completadas y estado de backlog `ready_to_finish`. Si falla, se detiene y se resuelve la discrepancia con el documentador.
 
 Solo después de actualizar la spec global y registrar el delta se puede archivar mediante:
 
@@ -42,7 +42,7 @@ El archivo mueve juntos los seis documentos a `docs/specai/feature/YYYYMMDD-slug
 
 | Gate | What MUST happen | PROHIBITED |
 |------|-----------------|-----------|
-| **Gate UA: User Acceptance** | User MUST have explicitly accepted the implementation (e.g. "accept", "acepto", "OK", "ship it"). The acceptance phrase and timestamp MUST be recorded in `_plan.md` Execution Log. | Invoking this skill on the user's behalf or assuming verifier-PASS equals done. See AGENTS.md §Gate UA. |
+| **Gate UA: User Acceptance** | After verifier `PASS`, the controller MUST have presented a short HTD de aceptación with `Artefacto / arranque`, prioritized `Ruta`/`Acción`/`Esperado` scenarios, and `No hace falta probar`, then the user MUST have tested it and explicitly accepted the implementation (e.g. "accept", "acepto", "OK", "ship it"). The log MUST contain `Gate UA HTD: presentado`, `HTD presentado` with its timestamp, and the exact acceptance text/timestamp. | Invoking this skill on the user's behalf, asking for `accept` before presenting the HTD de aceptación, or assuming verifier-PASS equals done. See AGENTS.md §Gate UA. |
 | **Gate F1: Tests Pass** | Full test suite MUST pass with 0 failures. | Presenting options, merging, or creating PRs with failing tests. |
 | **Gate F2: Verifier Passed** | Verifier MUST have reported PASS before reaching this skill. | Skipping verification and jumping to finishing. |
 | **Gate F3: Environment Detected** | Workspace state determined (normal repo, worktree, detached HEAD). | Presenting wrong menu for environment type. |

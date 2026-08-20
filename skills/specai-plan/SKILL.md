@@ -11,7 +11,7 @@ metadata:
 
 Ejecuta el flujo completo y rígido para una nueva funcionalidad:
 
-`grounding → grill-me → write-prd → approval → six documents → choose implement/backlog → branch only if implement → per-task cycle → spec-compliance-reviewer → verifier → Gate UA → finishing`
+`grounding → grill-me → write-prd → approval → six documents → choose implement/backlog → branch only if implement → per-task cycle → spec-compliance-reviewer → verifier → HTD de aceptación → Gate UA → finishing`
 
 No se puede saltar, reordenar ni abreviar ninguna fase.
 
@@ -27,8 +27,9 @@ Mini mode uses the same six feature artifacts in a compact form with the shared 
 6. **Per-task cycle:** por cada tarea: registrar `TASK_STARTED` → implementar → build/test → code review → commit → documentar.
 7. **Spec-compliance-reviewer:** revisar el cumplimiento completo de la spec después de todas las tareas.
 8. **Verifier:** comprobar la implementación contra `_verify.md`, única fuente de criterios de aceptación.
-9. **Gate UA:** detenerse y pedir pruebas y aceptación explícita del usuario antes de finalizar.
-10. **Finishing:** solo después de `accept` o equivalente, ofrecer merge, PR, conservar o limpiar la rama.
+9. **Gate UA:** después de un `PASS` del verifier y antes de pedir aceptación, presentar un **HTD de aceptación** breve y basado en hechos verificados del `HEAD`: `Artefacto / arranque` con comando/estado exacto o motivo por el que no aplica el arranque manual; una lista priorizada de escenarios visibles o conductuales con `Ruta`, `Acción` y `Esperado`; `No hace falta probar` solo para elementos fuera de alcance o ya cubiertos; y una petición final para probar el HTD de aceptación y responder `accept`/`acepto` o informar un problema. Si falta un hecho, declarar bloqueada la verificación manual o pedir el dato; no inventar rutas ni comportamiento.
+10. **Registro y bloqueo UA:** registrar `Gate UA HTD: presentado` y `HTD presentado` con timestamp en el `Execution Log`, y después la marca temporal y el texto exacto de aceptación. **No se puede pedir `accept` antes de presentar el HTD de aceptación.** Una respuesta previa, ausente o ambigua no habilita el cierre: pedir aclaración; un problema entra en iteración.
+11. **Finishing:** solo después de que el usuario pruebe el HTD presentado y responda `accept` o equivalente, ofrecer merge, PR, conservar o limpiar la rama.
 
 El verifier cierra el objetivo, no solo las tareas: solo puede devolver `PASS`
 si la invariante `GOAL_COMPLETE` de `_verify.md` es cierta. Si devuelve

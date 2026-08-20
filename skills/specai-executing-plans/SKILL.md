@@ -33,7 +33,7 @@ evidence, the corrective loop, branch timing, and Gate UA remain required.
 | **Gate E2.5: Interactive Risk Check** | Check task metadata (Complexity, Risk). Halt and request user approval if Complexity >= 7 or Risk is High. | Executing high-risk/high-complexity tasks without interactive confirmation. |
 | **Gate E3: Parallel Waves** | Ready independent tasks may run in parallel in disjoint workspaces; each task stays `in_progress` until its serialized review, commit, and documentation complete. | Skipping verifications, guessing, sharing workspaces, or bundling task state. |
 | **Gate E4: Blocked = STOP** | STOP immediately when blocked. | Forcing through blockers, guessing at fixes. |
-| **Gate E5: Full Review and Acceptance** | After all tasks: full test suite passes → `spec-compliance-reviewer` → `verifier PASS` with the `_verify.md` `GOAL_COMPLETE` invariant → Gate UA. `finishing-a-development-branch` is allowed only after explicit user acceptance. | Declaring done before verifier PASS, entering finishing from PASS directly, or proceeding without explicit user acceptance. |
+| **Gate E5: Full Review and Acceptance** | After all tasks: full test suite passes → `spec-compliance-reviewer` → `verifier PASS` with the `_verify.md` `GOAL_COMPLETE` invariant → HTD de aceptación → Gate UA. `finishing-a-development-branch` is allowed only after the HTD has been presented and the user has explicitly accepted. | Declaring done before verifier PASS, asking for acceptance before the HTD, entering finishing from PASS directly, or proceeding without explicit user acceptance. |
 
 ## The Process
 
@@ -87,8 +87,8 @@ Build waves from `Depends On`: a task is ready only when all listed dependencies
 After all tasks complete and verified:
 - Run the full test suite.
 - **REQUIRED REVIEWERS:** Invoke `spec-compliance-reviewer`, then `verifier`.
-- Follow the sequence `spec-compliance-reviewer → verifier PASS → Gate UA`.
-- Gate UA is the only next gate after verifier `PASS`. Stop and wait for explicit user acceptance; only then announce: "I'm using the finishing-a-development-branch skill to complete this work." and use `specai:specai-finishing-a-development-branch`.
+- Follow the sequence `spec-compliance-reviewer → verifier PASS → HTD de aceptación → Gate UA`.
+- After verifier `PASS`, present and record the HTD de aceptación before Gate UA. Stop and wait for the user to test it and explicitly accept; only then announce: "I'm using the finishing-a-development-branch skill to complete this work." and use `specai:specai-finishing-a-development-branch`.
 
 **STOP here if any task's verifications fail. Fix before completing.** The
 controller may enter Gate UA only after the verifier reports `PASS` and the
