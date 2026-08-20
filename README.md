@@ -464,15 +464,16 @@ After adding the plugin, run:
 bash scripts/setup-agents.sh          # Injects agents and commands into OpenCode config
 ```
 
-### Antigravity CLI / Gemini CLI / Cursor / Copilot CLI / Factory Droid / Hermes
+### Antigravity / Codex / OpenCode / Hermes / Universal (Unified CLI)
 
-Use the unified manager:
+Use the unified `specai` CLI manager to link, install, update, diagnose, and configure across detected harnesses:
 
 ```bash
-./specai                # Interactive TUI menu
-./specai install        # Sync 39 skills and 7 native subagent definitions into Antigravity
-./specai install-hermes # Symlink all 39 skills into ~/.hermes/skills/ (per-skill)
-./specai setup          # Configure subagents in OpenCode
+./specai link           # Live development linking for detected harnesses (Antigravity, Codex, OpenCode, Hermes, Universal)
+./specai install        # Public installation into detected harnesses
+./specai update         # Update from remote and refresh detected harnesses
+./specai doctor         # Diagnose health of all harnesses, skills, and subagents
+./specai config         # Open interactive configuration TUI
 ```
 
 Each harness has its own configuration (e.g., `.antigravity-plugin/`, `.cursor-plugin/`, `.codex-plugin/`, `.droid-plugin/`). Antigravity discovers the seven native subagents under `.antigravity-plugin/agents/` and dispatches them with `invoke_subagent`. Hermes is the one exception — there is no `.hermes-plugin/` because Hermes discovers skills by reading individual `SKILL.md` files under `$HERMES_HOME/skills/`.
@@ -510,7 +511,7 @@ After pulling new changes, refresh everything:
 ./specai update
 ```
 
-This re-links skills and re-injects agents in one step.
+This updates from remote and refreshes all detected harnesses in one step.
 
 ---
 
@@ -540,20 +541,20 @@ Run without arguments for the **interactive TUI menu**, or with a command:
 
 | Command | Aliases | Description |
 |---------|---------|-------------|
-| `install` | `--install`, `-i` | Symlink skills into Antigravity CLI (`~/.gemini/antigravity-cli/skills/`) |
-| `uninstall` | `--uninstall` | Remove skills from Antigravity CLI |
-| `setup` | `--setup` | Inject all 7 subagents into OpenCode config (`~/.config/opencode/opencode.json`) |
-| `config` | `--config` | Interactive model configuration for all subagents |
-| `uninstall-opencode` | `--uninstall-opencode` | Remove specai agent definitions from OpenCode |
-| `purge` | `--purge` | Remove agents + delete `~/.config/specai/` entirely |
-| `update` | `--update`, `-u` | Re-link skills + re-inject agents (run after `git pull`) |
+| `link` | `--link` | Live development linking for detected harnesses (Antigravity, Codex, OpenCode, Hermes, Universal) |
+| `install` | `--install`, `-i` | Public installation into detected harnesses |
+| `update` | `--update`, `-u` | Update from remote and refresh detected harnesses |
+| `doctor` | `--doctor` | Diagnose health of all harnesses, skills, and subagents |
+| `config` | `--config` | Open interactive configuration TUI |
+| `unlink` | `--unlink` | Unlink and clean SpecAI from detected harnesses |
 | `help` | `--help`, `-h` | Show usage help |
 
 **Example:**
 ```bash
-./specai                    # Open TUI menu
-./specai install            # Install Antigravity skills
-./specai setup              # Setup OpenCode subagents
+./specai                    # Open interactive TUI menu
+./specai link               # Link live development across detected harnesses
+./specai install            # Install into detected harnesses
+./specai doctor             # Run comprehensive health diagnostic
 ./specai config             # Configure models interactively
 ```
 

@@ -20,6 +20,9 @@ LEGACY_CLI_DIR="${HOME}/.gemini/antigravity-cli/skills"
 # `hermes skills install <specific>` to find our repo).
 HERMES_SKILLS_DIR="${HERMES_HOME:-${HOME}/.hermes}/skills"
 REPO_SKILLS_DIR="${REPO_ROOT}/skills"
+CODEX_CONFIG_DIR="${HOME}/.codex"
+CODEX_CONFIG_FILE="${CODEX_CONFIG_DIR}/config.toml"
+UNIVERSAL_SKILLS_DIR="${HOME}/.agents/skills"
 
 # UI Colors
 RED='\033[0;31m'
@@ -190,17 +193,9 @@ purge_opencode() {
     fi
 }
 
-# Update: re-link plugin + re-inject agents
+# Update: re-link plugin + re-inject agents (delegates to cmd_update)
 update_all() {
-    echo -e "${BLUE}Actualizando specai...${NC}"
-    echo -e "${CYAN}Paso 1: re-vinculando plugin de Gemini/Antigravity...${NC}"
-    install_plugin
-    echo -e "${CYAN}Paso 2: re-inyectando agentes en OpenCode...${NC}"
-    setup_opencode
-    echo -e "${CYAN}Paso 3: re-vinculando skills en Hermes...${NC}"
-    install_hermes
-    echo -e "\n${GREEN}${BOLD}¡Actualización completa!${NC}"
-    echo -e "Los cambios del último git pull están activos.\n"
+    cmd_update "$@"
 }
 
 # Install specai skills into Hermes's $HERMES_HOME/skills/ as per-skill symlinks.
@@ -279,6 +274,222 @@ uninstall_hermes() {
         echo -e "${YELLOW}  No había skills de specai instaladas en Hermes.${NC}"
     fi
     echo -e "\n${GREEN}${BOLD}Desinstalación de Hermes completada.${NC}\n"
+}
+
+# Link/unlink Antigravity
+link_antigravity() {
+    install_plugin "$@"
+}
+
+unlink_antigravity() {
+    uninstall_plugin "$@"
+}
+
+# Link/unlink OpenCode
+link_opencode() {
+    setup_opencode "$@"
+}
+
+unlink_opencode() {
+    uninstall_opencode "$@"
+}
+
+# Link/unlink Hermes
+link_hermes() {
+    install_hermes "$@"
+}
+
+unlink_hermes() {
+    uninstall_hermes "$@"
+}
+
+# Configure ~/.codex/config.toml with specai marketplace and plugin
+link_codex() {
+    echo -e "${BLUE}Enlazando specai en Codex...${NC}"
+    local codex_dir="${CODEX_CONFIG_DIR:-${HOME}/.codex}"
+    local codex_config="${codex_dir}/config.toml"
+    mkdir -p "${codex_dir}"
+
+    python3 - "${codex_config}" "${REPO_ROOT}" <<'PY'
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+repo_root = str(Path(sys.argv[2]).resolve())
+
+pattern_mkt = re.compile(r'^\s*\[\s*marketplaces\.specai\s*\]', re.IGNORECASE)
+pattern_plg = re.compile(r'^\s*\[\s*plugins\.(?:"specai@specai"|\'specai@specai\'|specai@specai)\s*\]', re.IGNORECASE)
+
+def remove_section(content: str, pattern: re.Pattern) -> str:
+    lines = content.splitlines(keepends=True)
+    new_lines = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        if pattern.match(line):
+            i += 1
+            while i < n:
+                if re.match(r'^\s*\[', lines[i]):
+                    break
+                i += 1
+            continue
+        new_lines.append(line)
+        i += 1
+    result = "".join(new_lines)
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result
+
+content = ""
+if config_path.is_file():
+    try:
+        content = config_path.read_text(encoding="utf-8")
+    except OSError:
+        content = ""
+
+content = remove_section(content, pattern_mkt)
+content = remove_section(content, pattern_plg)
+content = content.rstrip()
+
+new_sections = f'''[marketplaces.specai]
+source_type = "local"
+source = {json.dumps(repo_root)}
+
+[plugins."specai@specai"]
+enabled = true'''
+
+if content:
+    final_content = content + "\n\n" + new_sections + "\n"
+else:
+    final_content = new_sections + "\n"
+
+config_path.parent.mkdir(parents=True, exist_ok=True)
+config_path.write_text(final_content, encoding="utf-8")
+PY
+    echo -e "${GREEN}✓ Marketplace y plugin de specai configurados en ${codex_config}${NC}"
+}
+
+# Remove specai marketplace and plugin from ~/.codex/config.toml
+unlink_codex() {
+    echo -e "${BLUE}Desvinculando specai de Codex...${NC}"
+    local codex_dir="${CODEX_CONFIG_DIR:-${HOME}/.codex}"
+    local codex_config="${codex_dir}/config.toml"
+
+    if [ ! -f "${codex_config}" ]; then
+        echo -e "${YELLOW}  ${codex_config} no existe — nada que desvincular.${NC}"
+        return 0
+    fi
+
+    python3 - "${codex_config}" <<'PY'
+import os
+import re
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+if not config_path.is_file():
+    sys.exit(0)
+
+pattern_mkt = re.compile(r'^\s*\[\s*marketplaces\.specai\s*\]', re.IGNORECASE)
+pattern_plg = re.compile(r'^\s*\[\s*plugins\.(?:"specai@specai"|\'specai@specai\'|specai@specai)\s*\]', re.IGNORECASE)
+
+def remove_section(content: str, pattern: re.Pattern) -> str:
+    lines = content.splitlines(keepends=True)
+    new_lines = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        if pattern.match(line):
+            i += 1
+            while i < n:
+                if re.match(r'^\s*\[', lines[i]):
+                    break
+                i += 1
+            continue
+        new_lines.append(line)
+        i += 1
+    result = "".join(new_lines)
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result
+
+try:
+    content = config_path.read_text(encoding="utf-8")
+except OSError:
+    sys.exit(0)
+
+new_content = remove_section(content, pattern_mkt)
+new_content = remove_section(new_content, pattern_plg)
+new_content = new_content.strip()
+if new_content:
+    new_content += "\n"
+
+config_path.write_text(new_content, encoding="utf-8")
+PY
+    echo -e "${GREEN}✓ SpecAI desvinculado de ${codex_config}${NC}"
+}
+
+# Link specai skills into Universal (.agents) skills directory
+link_universal() {
+    echo -e "${BLUE}Instalando skills de specai en Universal (.agents)...${NC}"
+
+    if [ ! -d "${REPO_SKILLS_DIR}" ]; then
+        echo -e "${RED}Error: el directorio de skills ${REPO_SKILLS_DIR} no existe.${NC}"
+        exit 1
+    fi
+
+    local universal_skills_dir="${UNIVERSAL_SKILLS_DIR:-${HOME}/.agents/skills}"
+    mkdir -p "${universal_skills_dir}"
+
+    local linked=0
+    shopt -s nullglob
+    for skill_dir in "${REPO_SKILLS_DIR}"/*/; do
+        local name
+        name="$(basename "${skill_dir}")"
+        if [ ! -f "${skill_dir}SKILL.md" ]; then
+            continue
+        fi
+        local target="${universal_skills_dir}/${name}"
+        if [ -L "${target}" ] || [ -e "${target}" ]; then
+            rm -rf "${target}"
+        fi
+        ln -s "${skill_dir%/}" "${target}"
+        linked=$((linked + 1))
+    done
+    shopt -u nullglob
+
+    echo -e "${GREEN}✓ ${linked} skill(s) de specai vinculadas en ${universal_skills_dir}${NC}"
+    echo -e "\n${GREEN}${BOLD}Instalación en Universal (.agents) completada.${NC}\n"
+}
+
+# Remove specai skill symlinks from Universal (.agents) skills directory
+unlink_universal() {
+    echo -e "${BLUE}Desinstalando specai de Universal (.agents)...${NC}"
+
+    local universal_skills_dir="${UNIVERSAL_SKILLS_DIR:-${HOME}/.agents/skills}"
+    if [ ! -d "${universal_skills_dir}" ]; then
+        echo -e "${YELLOW}  El directorio ${universal_skills_dir} no existe — nada que desinstalar.${NC}"
+        return 0
+    fi
+
+    local removed=0
+    shopt -s nullglob
+    for link in "${universal_skills_dir}"/specai-*; do
+        if [ -L "${link}" ]; then
+            rm -f "${link}"
+            echo -e "  ${RED}✗${NC} Removido: $(basename "${link}")"
+            removed=$((removed + 1))
+        fi
+    done
+    shopt -u nullglob
+
+    if [ "${removed}" -eq 0 ]; then
+        echo -e "${YELLOW}  No había skills de specai instaladas en Universal (.agents).${NC}"
+    fi
+    echo -e "\n${GREEN}${BOLD}Desinstalación de Universal (.agents) completada.${NC}\n"
 }
 
 # TUI Menu
@@ -371,64 +582,452 @@ show_menu() {
     done
 }
 
+# Detect available harnesses in the environment
+detect_harnesses() {
+    local detected=()
+    if [ -d "${HOME}/.gemini/config" ] || command -v agy &>/dev/null; then
+        detected+=("antigravity")
+    fi
+    if [ -d "${HOME}/.codex" ] || command -v codex &>/dev/null; then
+        detected+=("codex")
+    fi
+    if [ -d "${HOME}/.config/opencode" ] || command -v opencode &>/dev/null; then
+        detected+=("opencode")
+    fi
+    if [ -d "${HERMES_HOME:-${HOME}/.hermes}" ]; then
+        detected+=("hermes")
+    fi
+    if [ -d "${HOME}/.agents" ] || command -v dsh &>/dev/null; then
+        detected+=("universal")
+    fi
+    echo "${detected[*]}"
+}
+
+# Link specai to detected harnesses
+cmd_link() {
+    local harnesses
+    harnesses=$(detect_harnesses)
+    echo -e "${BLUE}Enlazando SpecAI en harnesses detectados: ${harnesses:-ninguno}${NC}"
+    if [ -z "$harnesses" ]; then
+        echo -e "${YELLOW}No se detectaron harnesses soportados en el sistema.${NC}"
+        return 0
+    fi
+    for h in $harnesses; do
+        case "$h" in
+            antigravity)
+                link_antigravity "$@"
+                ;;
+            codex)
+                link_codex "$@"
+                ;;
+            opencode)
+                link_opencode "$@"
+                ;;
+            hermes)
+                link_hermes "$@"
+                ;;
+            universal)
+                link_universal "$@"
+                ;;
+            *)
+                echo -e "  ${CYAN}Harness detectado:${NC} $h"
+                ;;
+        esac
+    done
+}
+
+# Unlink specai from detected harnesses
+cmd_unlink() {
+    local harnesses
+    harnesses=$(detect_harnesses)
+    echo -e "${BLUE}Desvinculando SpecAI de harnesses detectados: ${harnesses:-ninguno}${NC}"
+    if [ -z "$harnesses" ]; then
+        echo -e "${YELLOW}No se detectaron harnesses soportados en el sistema.${NC}"
+        return 0
+    fi
+    for h in $harnesses; do
+        case "$h" in
+            antigravity)
+                unlink_antigravity "$@"
+                ;;
+            codex)
+                unlink_codex "$@"
+                ;;
+            opencode)
+                unlink_opencode "$@"
+                ;;
+            hermes)
+                unlink_hermes "$@"
+                ;;
+            universal)
+                unlink_universal "$@"
+                ;;
+            *)
+                echo -e "  ${CYAN}Harness desvinculado:${NC} $h"
+                ;;
+        esac
+    done
+}
+
+# Install SpecAI in detected harnesses
+cmd_install() {
+    local harnesses
+    harnesses=$(detect_harnesses)
+    echo -e "${BLUE}Instalando SpecAI en harnesses detectados: ${harnesses:-ninguno}${NC}"
+    if [ -z "$harnesses" ]; then
+        echo -e "${YELLOW}No se detectaron harnesses soportados en el sistema.${NC}"
+        echo "PASS: install configured all detected harnesses (0 detected)"
+        return 0
+    fi
+    for h in $harnesses; do
+        case "$h" in
+            antigravity)
+                link_antigravity "$@"
+                ;;
+            codex)
+                link_codex "$@"
+                ;;
+            opencode)
+                link_opencode "$@"
+                ;;
+            hermes)
+                link_hermes "$@"
+                ;;
+            universal)
+                link_universal "$@"
+                ;;
+            *)
+                echo -e "  ${CYAN}Harness instalado:${NC} $h"
+                ;;
+        esac
+    done
+    echo -e "\n${GREEN}${BOLD}Instalación completada en harnesses: ${harnesses}${NC}"
+    echo "PASS: install configured all detected harnesses"
+}
+
+# Update SpecAI and refresh all detected harnesses
+cmd_update() {
+    local no_pull=0
+    local filtered_args=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--no-pull" ]]; then
+            no_pull=1
+        else
+            filtered_args+=("$arg")
+        fi
+    done
+
+    echo -e "${BLUE}Actualizando SpecAI...${NC}"
+
+    if [[ "$no_pull" -eq 0 ]] && command -v git &>/dev/null && git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree &>/dev/null; then
+        local remote_origin
+        remote_origin=$(git -C "${REPO_ROOT}" config --get remote.origin.url 2>/dev/null || true)
+        if [[ -n "$remote_origin" ]]; then
+            echo -e "${CYAN}Descargando actualizaciones desde origen remoto (${remote_origin})...${NC}"
+            git -C "${REPO_ROOT}" pull --ff-only 2>/dev/null || git -C "${REPO_ROOT}" pull 2>/dev/null || echo -e "${YELLOW}Advertencia: no se pudo actualizar vía git pull.${NC}"
+        fi
+    fi
+
+    # Sync canonical skills projection if script is present
+    if [ -f "${REPO_ROOT}/scripts/sync-antigravity-plugin.sh" ]; then
+        bash "${REPO_ROOT}/scripts/sync-antigravity-plugin.sh" 2>/dev/null || true
+    fi
+
+    local harnesses
+    harnesses=$(detect_harnesses)
+    echo -e "${BLUE}Refrescando proyecciones y subagentes en harnesses: ${harnesses:-ninguno}${NC}"
+
+    if [ -n "$harnesses" ]; then
+        for h in $harnesses; do
+            case "$h" in
+                antigravity)
+                    link_antigravity "${filtered_args[@]}"
+                    ;;
+                codex)
+                    link_codex "${filtered_args[@]}"
+                    ;;
+                opencode)
+                    link_opencode "${filtered_args[@]}"
+                    ;;
+                hermes)
+                    link_hermes "${filtered_args[@]}"
+                    ;;
+                universal)
+                    link_universal "${filtered_args[@]}"
+                    ;;
+                *)
+                    echo -e "  ${CYAN}Harness refrescado:${NC} $h"
+                    ;;
+            esac
+        done
+    fi
+
+    echo -e "\n${GREEN}${BOLD}¡Actualización completa!${NC}"
+    echo "PASS: update refreshed all detected harnesses"
+}
+
+# Run doctor diagnostics
+cmd_doctor() {
+    local json_mode=0
+    for arg in "$@"; do
+        if [[ "$arg" == "--json" ]]; then
+            json_mode=1
+            break
+        fi
+    done
+
+    local harnesses
+    harnesses=$(detect_harnesses)
+
+    local harness_exit=0
+    local doctor_exit=0
+    local has_fail=0
+    local has_warn=0
+
+    if [[ "$json_mode" -eq 1 ]]; then
+        local harness_out="{}"
+        local doctor_out="{}"
+        if [[ -n "$harnesses" && -f "${REPO_ROOT}/scripts/specai-harness-doctor.sh" ]]; then
+            harness_out=$(bash "${REPO_ROOT}/scripts/specai-harness-doctor.sh" --json 2>/dev/null) || harness_exit=$?
+        fi
+        if [ -f "${REPO_ROOT}/scripts/specai-doctor.sh" ]; then
+            doctor_out=$(bash "${REPO_ROOT}/scripts/specai-doctor.sh" "$@" 2>/dev/null) || doctor_exit=$?
+        fi
+
+        if [[ "$harness_exit" -ge 2 || "$doctor_exit" -ge 2 ]]; then
+            has_fail=1
+        elif [[ "$harness_exit" -eq 1 || "$doctor_exit" -eq 1 ]]; then
+            has_warn=1
+        fi
+
+        python3 - "${harnesses}" "${harness_out}" "${doctor_out}" "${has_fail}" "${has_warn}" <<'PY'
+import json, sys
+harnesses_str, harness_json, doctor_json, has_fail, has_warn = sys.argv[1:6]
+try:
+    harness_data = json.loads(harness_json)
+except Exception:
+    harness_data = {}
+try:
+    doctor_data = json.loads(doctor_json)
+except Exception:
+    doctor_data = {}
+
+harnesses_list = harnesses_str.split() if harnesses_str else []
+
+if has_fail == "1" or doctor_data.get("fail", 0) > 0 or harness_data.get("overall") == "FAIL":
+    overall = "FAIL"
+elif has_warn == "1" or doctor_data.get("warn", 0) > 0 or harness_data.get("overall") == "WARN":
+    overall = "WARN"
+else:
+    overall = "OK"
+
+payload = {
+    "overall": overall,
+    "detected_harnesses": harnesses_list,
+    "harness_doctor": harness_data,
+    "doctor": doctor_data
+}
+print(json.dumps(payload, ensure_ascii=False, indent=2))
+PY
+        if [[ "$has_fail" -eq 1 ]]; then
+            return 2
+        fi
+        return 0
+    fi
+
+    echo -e "${BLUE}${BOLD}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}${BOLD}            SpecAI — Diagnóstico Unificado             ${NC}"
+    echo -e "${BLUE}${BOLD}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}Harnesses detectados:${NC} ${harnesses:-ninguno}"
+    echo ""
+
+    # 1. Native harness doctor (only if harnesses are detected)
+    if [ -n "$harnesses" ] && [ -f "${REPO_ROOT}/scripts/specai-harness-doctor.sh" ]; then
+        echo -e "${BLUE}${BOLD}[1/2] Diagnóstico de Harnesses y Subagentes...${NC}"
+        bash "${REPO_ROOT}/scripts/specai-harness-doctor.sh" || harness_exit=$?
+        echo ""
+    else
+        echo -e "${BLUE}${BOLD}[1/2] Diagnóstico de Harnesses y Subagentes...${NC}"
+        echo -e "  ${YELLOW}ℹ No se detectaron harnesses activos para auditar.${NC}"
+        echo ""
+    fi
+
+    # 2. General SpecAI doctor
+    if [ -f "${REPO_ROOT}/scripts/specai-doctor.sh" ]; then
+        echo -e "${BLUE}${BOLD}[2/2] Diagnóstico de Configuración y Skills...${NC}"
+        bash "${REPO_ROOT}/scripts/specai-doctor.sh" "$@" || doctor_exit=$?
+        echo ""
+    fi
+
+    # 3. Check extra detected harness link health (Hermes / Universal)
+    if [[ " $harnesses " =~ " hermes " ]]; then
+        local hermes_count=0
+        if [ -d "${HERMES_SKILLS_DIR}" ]; then
+            hermes_count=$(find "${HERMES_SKILLS_DIR}" -mindepth 1 -maxdepth 1 -name "specai-*" 2>/dev/null | wc -l || true)
+        fi
+        if [ "$hermes_count" -gt 0 ]; then
+            echo -e "  ${GREEN}✓${NC} Hermes: ${hermes_count} skills vinculadas en ${HERMES_SKILLS_DIR}"
+        else
+            echo -e "  ${YELLOW}⚠️${NC}  Hermes: 0 skills vinculadas en ${HERMES_SKILLS_DIR} (ejecutá: ./specai link-hermes)"
+        fi
+    fi
+    if [[ " $harnesses " =~ " universal " ]]; then
+        local universal_count=0
+        local u_dir="${UNIVERSAL_SKILLS_DIR:-${HOME}/.agents/skills}"
+        if [ -d "${u_dir}" ]; then
+            universal_count=$(find "${u_dir}" -mindepth 1 -maxdepth 1 -name "specai-*" 2>/dev/null | wc -l || true)
+        fi
+        if [ "$universal_count" -gt 0 ]; then
+            echo -e "  ${GREEN}✓${NC} Universal (.agents): ${universal_count} skills vinculadas en ${u_dir}"
+        else
+            echo -e "  ${YELLOW}⚠️${NC}  Universal (.agents): 0 skills vinculadas en ${u_dir} (ejecutá: ./specai link-universal)"
+        fi
+    fi
+
+    if [[ "$harness_exit" -ge 2 || "$doctor_exit" -ge 2 ]]; then
+        has_fail=1
+    elif [[ "$harness_exit" -eq 1 || "$doctor_exit" -eq 1 ]]; then
+        has_warn=1
+    fi
+
+    echo ""
+    echo -e "${CYAN}${BOLD}───────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN}${BOLD}  Resumen Consolidado de Diagnóstico SpecAI${NC}"
+    echo -e "${CYAN}${BOLD}───────────────────────────────────────────────────────${NC}"
+    echo -e "  Harnesses evaluados: ${harnesses:-ninguno}"
+    if [[ "$has_fail" -eq 1 ]]; then
+        echo -e "  ${RED}✘ Estado global: FALLO (se detectaron errores críticos)${NC}"
+        return 2
+    elif [[ "$has_warn" -eq 1 ]]; then
+        echo -e "  ${YELLOW}⚠ Estado global: ADVERTENCIAS (el entorno funciona pero tiene advertencias)${NC}"
+        return 0
+    else
+        echo -e "  ${GREEN}✓ Estado global: SALUDABLE (todos los componentes OK)${NC}"
+        return 0
+    fi
+}
+
 # Help / Usage
 show_help() {
     echo -e "${CYAN}${BOLD}specai CLI Manager${NC}"
     echo -e "Uso: ./specai [comando]"
     echo ""
     echo -e "Comandos disponibles:"
-    echo -e "  ${GREEN}install${NC}             Instala specai como plugin de Gemini/Antigravity"
-    echo -e "  ${RED}uninstall${NC}           Remueve specai de Gemini/Antigravity"
-    echo -e "  ${GREEN}install-hermes${NC}      Symlinkea los skills de specai en ~/.hermes/skills/"
-    echo -e "  ${RED}uninstall-hermes${NC}    Remueve los symlinks de specai en ~/.hermes/skills/"
-    echo -e "  ${BLUE}setup${NC}               Configura los subagentes en OpenCode"
-    echo -e "  ${BLUE}config${NC}              Open interactive TUI for configuration"
-    echo -e "  ${RED}uninstall-opencode${NC}  Remueve los agentes specai de OpenCode"
-    echo -e "  ${RED}purge${NC}               Remueve agentes + elimina ~/.config/specai/"
-    echo -e "  ${GREEN}update${NC}              Re-vincula plugin, re-inyecta agentes y re-linkea skills Hermes (post git pull)"
+    echo -e "  ${GREEN}link${NC}                Enlaza en vivo a los harnesses detectados (modo desarrollo)"
+    echo -e "  ${RED}unlink${NC}              Desvincula y limpia SpecAI de los harnesses detectados"
+    echo -e "  ${GREEN}install${NC}             Instala SpecAI en los harnesses detectados"
+    echo -e "  ${GREEN}update${NC}              Actualiza SpecAI desde el origen remoto"
+    echo -e "  ${CYAN}doctor${NC}              Verifica la salud de los harnesses y roles"
+    echo -e "  ${BLUE}config${NC}              Abre la interfaz interactiva (TUI)"
     echo -e "  ${YELLOW}help${NC}                Muestra esta ayuda"
     echo ""
     echo -e "Si ejecutás ./specai sin argumentos, se abrirá el menú interactivo (TUI)."
 }
 
-# Main routing
-case "$1" in
-    install|--install|-i)
-        install_plugin
-        ;;
-    uninstall|--uninstall)
-        uninstall_plugin
-        ;;
-    install-hermes|--install-hermes)
-        install_hermes
-        ;;
-    uninstall-hermes|--uninstall-hermes)
-        uninstall_hermes
-        ;;
-    setup|--setup)
-        setup_opencode
-        ;;
-    config|--config)
-        bash "${REPO_ROOT}/scripts/specai-tui.sh"
-        ;;
-    uninstall-opencode|--uninstall-opencode)
-        uninstall_opencode
-        ;;
-    purge|--purge)
-        purge_opencode
-        ;;
-    update|--update|-u)
-        update_all
-        ;;
-    help|--help|-h)
-        show_help
-        ;;
-    "")
-        show_menu
-        ;;
-    *)
-        echo -e "${RED}Comando desconocido: $1${NC}"
-        show_help
-        exit 1
-        ;;
-esac
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Main routing
+    case "$1" in
+        link|--link)
+            shift 2>/dev/null || true
+            cmd_link "$@"
+            ;;
+        unlink|--unlink)
+            shift 2>/dev/null || true
+            cmd_unlink "$@"
+            ;;
+        link-antigravity|--link-antigravity)
+            shift 2>/dev/null || true
+            link_antigravity "$@"
+            ;;
+        unlink-antigravity|--unlink-antigravity)
+            shift 2>/dev/null || true
+            unlink_antigravity "$@"
+            ;;
+        link-codex|--link-codex)
+            shift 2>/dev/null || true
+            link_codex "$@"
+            ;;
+        unlink-codex|--unlink-codex)
+            shift 2>/dev/null || true
+            unlink_codex "$@"
+            ;;
+        link-opencode|--link-opencode)
+            shift 2>/dev/null || true
+            link_opencode "$@"
+            ;;
+        unlink-opencode|--unlink-opencode)
+            shift 2>/dev/null || true
+            unlink_opencode "$@"
+            ;;
+        link-hermes|--link-hermes)
+            shift 2>/dev/null || true
+            link_hermes "$@"
+            ;;
+        unlink-hermes|--unlink-hermes)
+            shift 2>/dev/null || true
+            unlink_hermes "$@"
+            ;;
+        link-universal|--link-universal)
+            shift 2>/dev/null || true
+            link_universal "$@"
+            ;;
+        unlink-universal|--unlink-universal)
+            shift 2>/dev/null || true
+            unlink_universal "$@"
+            ;;
+        install|--install|-i)
+            shift 2>/dev/null || true
+            cmd_install "$@"
+            ;;
+        uninstall|--uninstall)
+            shift 2>/dev/null || true
+            uninstall_plugin "$@"
+            ;;
+        doctor|--doctor)
+            shift 2>/dev/null || true
+            cmd_doctor "$@"
+            ;;
+        config|--config)
+            shift 2>/dev/null || true
+            bash "${REPO_ROOT}/scripts/specai-tui.sh" "$@"
+            ;;
+        detect-harnesses|--detect-harnesses)
+            detect_harnesses
+            ;;
+        install-hermes|--install-hermes)
+            shift 2>/dev/null || true
+            install_hermes "$@"
+            ;;
+        uninstall-hermes|--uninstall-hermes)
+            shift 2>/dev/null || true
+            uninstall_hermes "$@"
+            ;;
+        setup|--setup)
+            shift 2>/dev/null || true
+            setup_opencode "$@"
+            ;;
+        uninstall-opencode|--uninstall-opencode)
+            shift 2>/dev/null || true
+            uninstall_opencode "$@"
+            ;;
+        purge|--purge)
+            shift 2>/dev/null || true
+            purge_opencode "$@"
+            ;;
+        update|--update|-u)
+            shift 2>/dev/null || true
+            cmd_update "$@"
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        "")
+            show_menu
+            ;;
+        *)
+            echo -e "${RED}Comando desconocido: $1${NC}"
+            show_help
+            exit 1
+            ;;
+    esac
+fi
